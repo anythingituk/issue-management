@@ -2,6 +2,55 @@
   "projectId": "issue-management",
   "issues": [
     {
+      "id": "iss-1777231289012",
+      "projectId": "issue-management",
+      "createdAt": "2026-04-26T19:21:29.012Z",
+      "title": "Enforce 35-character title limit for snags",
+      "status": "open",
+      "decision": "approved",
+      "priority": "later",
+      "category": "snag",
+      "source": "User",
+      "detail": "Limit title to 35 characters",
+      "activity": [
+        "Codex decision changed to Approved.",
+        "Snag added; Codex should check current work for a suitable opportunity to address it."
+      ]
+    },
+    {
+      "id": "iss-1777231220614",
+      "projectId": "issue-management",
+      "createdAt": "2026-04-26T19:20:20.614Z",
+      "title": "Replace current AI icon with new AI symbol",
+      "status": "open",
+      "decision": "approved",
+      "priority": "later",
+      "category": "snag",
+      "source": "User",
+      "detail": "Change the AI icon to a AI symbol",
+      "activity": [
+        "Codex decision changed to Approved.",
+        "Snag added; Codex should check current work for a suitable opportunity to address it."
+      ]
+    },
+    {
+      "id": "iss-1777229160211",
+      "projectId": "issue-management",
+      "createdAt": "2026-04-26T18:46:00.211Z",
+      "title": "Can we change the styling of the CODEX COMPANION text so that it graduates from the light blue through to the purple",
+      "status": "in-progress",
+      "decision": "approved",
+      "category": "feature",
+      "source": "User",
+      "detail": "User-created snag-list item queued for future Codex work.",
+      "activity": [
+        "User asked Codex to action soon.",
+        "User asked Codex to action soon.",
+        "Added from the companion app."
+      ],
+      "priority": "soon"
+    },
+    {
       "id": "iss-1777223270299",
       "projectId": "issue-management",
       "createdAt": "2026-04-26T17:07:50.299Z",
@@ -16,7 +65,8 @@
         "User asked Codex to work on this now.",
         "Added from the companion app."
       ],
-      "file": "src/App.tsx"
+      "file": "src/App.tsx",
+      "priority": "later"
     }
   ]
 }
