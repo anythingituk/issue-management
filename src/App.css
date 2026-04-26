@@ -157,6 +157,12 @@
   white-space: pre-wrap;
 }
 
+.sync-time {
+  margin: -4px 0 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 .sync-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -179,6 +185,12 @@ button {
 
 .sync-actions button {
   min-height: 32px;
+}
+
+.sync-actions .primary-sync {
+  grid-column: 1 / -1;
+  background: var(--text-strong);
+  color: var(--surface);
 }
 
 .sync-actions button:disabled {

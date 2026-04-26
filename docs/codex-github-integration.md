@@ -80,8 +80,11 @@ Implemented API endpoints:
 - `GET /api/sync/status`
 - `POST /api/sync/pull`
 - `POST /api/sync/push`
+- `POST /api/sync/all`
 
 The push endpoint stages only `issues/`, commits with `Update issue list`, and then runs `git push`.
+
+The combined sync endpoint stages and commits issue-file changes first, pulls with rebase, and then pushes. This protects local issue edits before integrating remote changes.
 
 ```bash
 git pull --rebase

@@ -32,6 +32,7 @@ type SyncState = {
   tone: 'ready' | 'working' | 'error' | 'success'
   message: string
   output?: string
+  timestamp?: string
 }
 
 const statusLabels: Record<IssueStatus, string> = {
@@ -77,6 +78,14 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(value))
+}
+
 function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState('')
@@ -119,37 +128,6 @@ function App() {
     }
 
     loadProjects()
-
-    return () => {
-      ignore = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let ignore = false
-
-    async function loadSyncStatus() {
-      try {
-        const payload = await apiJson<{ message: string; output?: string }>('/api/sync/status')
-
-        if (!ignore) {
-          setSyncState({
-            tone: 'ready',
-            message: payload.message,
-            output: payload.output,
-          })
-        }
-      } catch (error) {
-        if (!ignore) {
-          setSyncState({
-            tone: 'error',
-            message: error instanceof Error ? error.message : 'Unable to check GitHub sync.',
-          })
-        }
-      }
-    }
-
-    loadSyncStatus()
 
     return () => {
       ignore = true
@@ -231,6 +209,28 @@ function App() {
     return issues.filter((issue) => issue.status !== 'fixed').length
   }
 
+  async function refreshSyncStatus() {
+    try {
+      const payload = await apiJson<{ checkedAt?: string; message: string; output?: string }>('/api/sync/status')
+      setSyncState({
+        tone: 'ready',
+        message: payload.message,
+        output: payload.output,
+        timestamp: payload.checkedAt,
+      })
+    } catch (error) {
+      setSyncState({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'Unable to check GitHub sync.',
+        timestamp: new Date().toISOString(),
+      })
+    }
+  }
+
+  useEffect(() => {
+    refreshSyncStatus()
+  }, [])
+
   async function updateStatus(issueId: string, status: IssueStatus) {
     const previousIssues = issues
 
@@ -256,6 +256,7 @@ function App() {
         currentIssues.map((issue) => (issue.id === issueId ? payload.issue : issue)),
       )
       setAppError('')
+      await refreshSyncStatus()
     } catch (error) {
       setIssues(previousIssues)
       setAppError(error instanceof Error ? error.message : 'Unable to update issue.')
@@ -288,6 +289,7 @@ function App() {
       setNewIssueFile('')
       setNewIssueCategory('snag')
       setAppError('')
+      await refreshSyncStatus()
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Unable to add issue.')
     }
@@ -314,15 +316,15 @@ function App() {
     })
   }
 
-  async function runSync(action: 'pull' | 'push') {
-    const label = action === 'pull' ? 'Pull' : 'Push'
+  async function runSync(action: 'pull' | 'push' | 'all') {
+    const label = action === 'pull' ? 'Pull' : action === 'push' ? 'Push' : 'Sync'
     setSyncState({
       tone: 'working',
       message: `${label} in progress...`,
     })
 
     try {
-      const payload = await apiJson<{ message: string; output?: string }>(`/api/sync/${action}`, {
+      const payload = await apiJson<{ completedAt?: string; message: string; output?: string }>(`/api/sync/${action}`, {
         method: 'POST',
       })
       await refreshSelectedProject()
@@ -330,11 +332,13 @@ function App() {
         tone: 'success',
         message: payload.message,
         output: payload.output,
+        timestamp: payload.completedAt ?? new Date().toISOString(),
       })
     } catch (error) {
       setSyncState({
         tone: 'error',
         message: error instanceof Error ? error.message : `${label} failed.`,
+        timestamp: new Date().toISOString(),
       })
     }
   }
@@ -374,8 +378,20 @@ function App() {
             <span className="pulse"></span>
             <span>{syncState.message}</span>
           </div>
+          {syncState.timestamp ? (
+            <p className="sync-time">Last checked {formatTime(syncState.timestamp)}</p>
+          ) : null}
           {syncState.output ? <pre className="sync-output">{syncState.output}</pre> : null}
           <div className="sync-actions" aria-label="GitHub sync actions">
+            <button
+              className="primary-sync"
+              disabled={syncState.tone === 'working'}
+              onClick={() => runSync('all')}
+              type="button"
+              title="Commit issue changes, pull from GitHub, then push"
+            >
+              Sync
+            </button>
             <button
               disabled={syncState.tone === 'working'}
               onClick={() => runSync('pull')}

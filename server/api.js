@@ -112,9 +112,12 @@ async function runGit(args) {
 async function syncStatus(response) {
   const status = await runGit(['status', '--short'])
   const branch = await runGit(['branch', '--show-current'])
+  const upstream = await runGit(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
+  const divergence = upstream.ok ? await runGit(['rev-list', '--left-right', '--count', '@{u}...HEAD']) : undefined
 
   if (!status.ok) {
     sendJson(response, 200, {
+      checkedAt: new Date().toISOString(),
       ready: false,
       message: 'Issue Management is not connected to a git repository yet.',
       output: status.output,
@@ -122,12 +125,30 @@ async function syncStatus(response) {
     return
   }
 
+  const [behind = 0, ahead = 0] =
+    divergence?.ok && divergence.output
+      ? divergence.output.split(/\s+/).map((value) => Number(value))
+      : []
+  const message = status.output
+    ? 'Local issue changes are waiting to be pushed.'
+    : ahead
+      ? `${ahead} local commit${ahead === 1 ? '' : 's'} waiting to be pushed.`
+      : behind
+        ? `${behind} remote commit${behind === 1 ? '' : 's'} waiting to be pulled.`
+        : upstream.ok
+          ? 'Working tree is clean and connected to GitHub.'
+          : 'Working tree is clean. Set an upstream before syncing.'
+
   sendJson(response, 200, {
+    ahead,
+    behind,
     branch: branch.ok ? branch.output : '',
+    checkedAt: new Date().toISOString(),
     dirty: Boolean(status.output),
     ready: true,
-    message: status.output ? 'Local issue changes are waiting to be pushed.' : 'Working tree is clean.',
+    message,
     output: status.output,
+    upstream: upstream.ok ? upstream.output : '',
   })
 }
 
@@ -145,25 +166,29 @@ async function syncPull(response) {
   })
 }
 
-async function syncPush(response) {
+async function commitIssueChanges() {
   const add = await runGit(['add', 'issues/'])
   if (!add.ok) {
-    sendError(response, 409, add.output || 'Git add failed.')
-    return
+    return { committed: false, ok: false, output: add.output || 'Git add failed.' }
   }
 
   const diff = await runGit(['diff', '--cached', '--quiet'])
   if (diff.ok) {
-    sendJson(response, 200, {
-      message: 'No issue changes to push.',
-      output: '',
-    })
-    return
+    return { committed: false, ok: true, output: '' }
   }
 
   const commit = await runGit(['commit', '-m', 'Update issue list'])
   if (!commit.ok) {
-    sendError(response, 409, commit.output || 'Git commit failed.')
+    return { committed: false, ok: false, output: commit.output || 'Git commit failed.' }
+  }
+
+  return { committed: true, ok: true, output: commit.output }
+}
+
+async function syncPush(response) {
+  const commit = await commitIssueChanges()
+  if (!commit.ok) {
+    sendError(response, 409, commit.output)
     return
   }
 
@@ -174,8 +199,35 @@ async function syncPush(response) {
   }
 
   sendJson(response, 200, {
-    message: 'Issue changes pushed to GitHub.',
+    completedAt: new Date().toISOString(),
+    message: commit.committed ? 'Issue changes pushed to GitHub.' : 'No issue changes to push.',
     output: [commit.output, push.output].filter(Boolean).join('\n\n'),
+  })
+}
+
+async function syncAll(response) {
+  const commit = await commitIssueChanges()
+  if (!commit.ok) {
+    sendError(response, 409, commit.output)
+    return
+  }
+
+  const pull = await runGit(['pull', '--rebase'])
+  if (!pull.ok) {
+    sendError(response, 409, pull.output || 'Git pull failed.')
+    return
+  }
+
+  const push = await runGit(['push'])
+  if (!push.ok) {
+    sendError(response, 409, push.output || 'Git push failed.')
+    return
+  }
+
+  sendJson(response, 200, {
+    completedAt: new Date().toISOString(),
+    message: 'Issue data synced with GitHub.',
+    output: [commit.output, pull.output, push.output].filter(Boolean).join('\n\n'),
   })
 }
 
@@ -333,6 +385,11 @@ async function route(request, response) {
 
   if (request.method === 'POST' && url.pathname === '/api/sync/push') {
     await syncPush(response)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/sync/all') {
+    await syncAll(response)
     return
   }
 
