@@ -39,6 +39,15 @@ type SyncState = {
   timestamp?: string
 }
 
+type SetupState = {
+  configured: boolean
+  dataDir: string
+  issuesDir: string
+  rootDir: string
+  message?: string
+  output?: string
+}
+
 const statusLabels: Record<IssueStatus, string> = {
   open: 'Open',
   'in-progress': 'In progress',
@@ -121,28 +130,52 @@ function App() {
   const [hideFixed, setHideFixed] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [appError, setAppError] = useState('')
+  const [setupState, setSetupState] = useState<SetupState | null>(null)
+  const [setupPath, setSetupPath] = useState('')
+  const [setupRemoteUrl, setSetupRemoteUrl] = useState('')
+  const [setupError, setSetupError] = useState('')
+  const [isSettingUp, setIsSettingUp] = useState(false)
   const [syncState, setSyncState] = useState<SyncState>({
     tone: 'ready',
     message: 'Checking GitHub sync...',
   })
 
+  async function loadProjectList() {
+    const payload = await apiJson<{ projects: Project[] }>('/api/projects')
+
+    setProjects(payload.projects)
+    setSelectedProjectId((currentProjectId) =>
+      payload.projects.some((project) => project.id === currentProjectId)
+        ? currentProjectId
+        : payload.projects[0]?.id || '',
+    )
+    setAppError('')
+  }
+
   useEffect(() => {
     let ignore = false
 
-    async function loadProjects() {
+    async function loadInitialState() {
       try {
-        const payload = await apiJson<{ projects: Project[] }>('/api/projects')
+        const setup = await apiJson<SetupState>('/api/setup')
 
         if (ignore) {
           return
         }
 
-        setProjects(payload.projects)
-        setSelectedProjectId((currentProjectId) => currentProjectId || payload.projects[0]?.id || '')
-        setAppError('')
+        setSetupState(setup)
+
+        if (setup.configured) {
+          await loadProjectList()
+        } else {
+          setProjects([])
+          setIssues([])
+          setSelectedProjectId('')
+          setSelectedIssueId('')
+        }
       } catch (error) {
         if (!ignore) {
-          setAppError(error instanceof Error ? error.message : 'Unable to load projects.')
+          setSetupError(error instanceof Error ? error.message : 'Unable to load setup state.')
         }
       } finally {
         if (!ignore) {
@@ -151,7 +184,7 @@ function App() {
       }
     }
 
-    loadProjects()
+    loadInitialState()
 
     return () => {
       ignore = true
@@ -286,8 +319,38 @@ function App() {
   }
 
   useEffect(() => {
-    refreshSyncStatus()
-  }, [])
+    if (setupState?.configured) {
+      refreshSyncStatus()
+    }
+  }, [setupState?.configured])
+
+  async function completeSetup(action: 'starter' | 'existing' | 'clone') {
+    const body =
+      action === 'existing'
+        ? { path: setupPath.trim() }
+        : action === 'clone'
+          ? { remoteUrl: setupRemoteUrl.trim() }
+          : undefined
+
+    setIsSettingUp(true)
+    setSetupError('')
+
+    try {
+      const setup = await apiJson<SetupState>(`/api/setup/${action}`, {
+        body: body ? JSON.stringify(body) : undefined,
+        method: 'POST',
+      })
+
+      setSetupState(setup)
+      await loadProjectList()
+      await refreshSyncStatus()
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : 'Unable to complete setup.')
+    } finally {
+      setIsSettingUp(false)
+      setIsLoading(false)
+    }
+  }
 
   async function updateStatus(issueId: string, status: IssueStatus) {
     const previousIssues = issues
@@ -567,6 +630,93 @@ function App() {
         timestamp: new Date().toISOString(),
       })
     }
+  }
+
+  if (!setupState?.configured) {
+    return (
+      <main className="setup-shell">
+        <section className="setup-panel" aria-label="Codex Companion setup">
+          <div className="setup-heading">
+            <div className="brand-mark">C</div>
+            <div>
+              <p className="eyebrow">Codex Companion</p>
+              <h1>Connect issue data</h1>
+            </div>
+          </div>
+
+          <div className="setup-summary">
+            <p>Default store</p>
+            <code>{setupState?.dataDir ?? 'Checking setup...'}</code>
+          </div>
+
+          {setupError ? <div className="error-banner">{setupError}</div> : null}
+
+          <div className="setup-options">
+            <div className="setup-option">
+              <div>
+                <h2>Starter local data</h2>
+                <p>Create a fresh issue store in the default Codex Companion folder.</p>
+              </div>
+              <button
+                disabled={isLoading || isSettingUp}
+                onClick={() => completeSetup('starter')}
+                type="button"
+              >
+                Use starter
+              </button>
+            </div>
+
+            <form
+              className="setup-option"
+              onSubmit={(event) => {
+                event.preventDefault()
+                completeSetup('existing')
+              }}
+            >
+              <div>
+                <h2>Existing folder</h2>
+                <p>Connect a folder that already contains issue JSON files.</p>
+              </div>
+              <div className="setup-form-row">
+                <input
+                  aria-label="Existing issue data folder"
+                  onChange={(event) => setSetupPath(event.target.value)}
+                  placeholder="/mnt/c/dev/issue-management"
+                  value={setupPath}
+                />
+                <button disabled={isLoading || isSettingUp} type="submit">
+                  Connect
+                </button>
+              </div>
+            </form>
+
+            <form
+              className="setup-option"
+              onSubmit={(event) => {
+                event.preventDefault()
+                completeSetup('clone')
+              }}
+            >
+              <div>
+                <h2>GitHub issue repo</h2>
+                <p>Clone a Git-backed issue store into the Codex Companion folder.</p>
+              </div>
+              <div className="setup-form-row">
+                <input
+                  aria-label="GitHub repository URL"
+                  onChange={(event) => setSetupRemoteUrl(event.target.value)}
+                  placeholder="https://github.com/user/issues.git"
+                  value={setupRemoteUrl}
+                />
+                <button disabled={isLoading || isSettingUp} type="submit">
+                  Clone
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (

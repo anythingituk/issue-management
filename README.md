@@ -41,9 +41,15 @@ Windows packaging:
 npm run dist:win
 ```
 
-The desktop app uses `Codex Companion` as its installed app name. On Windows, the default data store is `%APPDATA%/Codex Companion`. On first launch, the app creates that folder and seeds its `issues/` data from the bundled starter files if no issue data exists yet.
+The desktop app uses `Codex Companion` as its installed app name. On Windows, the default data store is `%APPDATA%/Codex Companion`.
 
-A later first-run setup should let installed users choose or clone their own Git-backed issue data folder into that default store.
+On first launch, the app shows a setup screen with three choices:
+
+- create starter local issue data in the default store
+- connect an existing folder that contains `issues/projects.json`
+- clone a GitHub issue-data repository into the default store
+
+The selected issue-data root is saved in `%APPDATA%/Codex Companion/config.json`, so the workspace and Git repository can stay named `issue-management` while the installed app and default store use `Codex Companion`.
 
 ## Codex Intake CLI
 

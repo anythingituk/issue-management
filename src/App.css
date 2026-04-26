@@ -1,3 +1,111 @@
+.setup-shell {
+  display: grid;
+  min-height: 100vh;
+  padding: 48px 22px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.setup-panel {
+  display: grid;
+  gap: 22px;
+  width: min(880px, 100%);
+  margin: 0 auto;
+  align-self: start;
+}
+
+.setup-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.setup-heading h1 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.setup-summary {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.setup-summary p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.setup-options {
+  display: grid;
+  gap: 12px;
+}
+
+.setup-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.setup-option h2 {
+  margin: 0 0 5px;
+  color: var(--text-strong);
+  font-size: 16px;
+}
+
+.setup-option p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.setup-form-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(92px, auto);
+  gap: 8px;
+}
+
+.setup-form-row input {
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-strong);
+  font: inherit;
+}
+
+.setup-option button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--text-strong);
+  color: var(--surface);
+  cursor: pointer;
+  font: inherit;
+}
+
+.setup-option button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .companion-shell {
   display: grid;
   grid-template-columns: 280px minmax(420px, 1fr) 360px;
@@ -746,6 +854,11 @@ code {
 }
 
 @media (max-width: 760px) {
+  .setup-option,
+  .setup-form-row {
+    grid-template-columns: 1fr;
+  }
+
   .companion-shell {
     grid-template-columns: 1fr;
   }

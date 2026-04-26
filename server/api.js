@@ -1,5 +1,6 @@
 import { createServer } from 'node:http'
 import { execFile } from 'node:child_process'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -8,6 +9,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const port = Number(process.env.ISSUE_API_PORT ?? 8787)
 const defaultRootDir = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const execFileAsync = promisify(execFile)
+let configuredRootDir = process.env.ISSUE_ROOT_DIR
+  ? path.resolve(process.env.ISSUE_ROOT_DIR)
+  : undefined
 
 const statusLabels = {
   open: 'Open',
@@ -35,7 +39,15 @@ async function writeJson(filePath, data) {
 }
 
 function getRootDir() {
-  return path.resolve(process.env.ISSUE_ROOT_DIR ?? defaultRootDir)
+  return configuredRootDir ?? defaultRootDir
+}
+
+function getDataDir() {
+  return path.resolve(process.env.CODEX_COMPANION_DATA_DIR ?? getRootDir())
+}
+
+function getConfigPath() {
+  return path.join(getDataDir(), 'config.json')
 }
 
 function getIssuesDir() {
@@ -44,6 +56,62 @@ function getIssuesDir() {
 
 function getProjectsPath() {
   return path.join(getIssuesDir(), 'projects.json')
+}
+
+function getBundledIssuesDir() {
+  return path.join(defaultRootDir, 'issues')
+}
+
+function hasProjectsFile(rootDir = getRootDir()) {
+  return existsSync(path.join(rootDir, 'issues', 'projects.json'))
+}
+
+function loadSetupConfig() {
+  const configPath = getConfigPath()
+
+  if (!existsSync(configPath)) {
+    return
+  }
+
+  try {
+    const config = JSON.parse(readFileSync(configPath, 'utf8'))
+    if (config.issueRootDir) {
+      configuredRootDir = path.resolve(String(config.issueRootDir))
+      process.env.ISSUE_ROOT_DIR = configuredRootDir
+    }
+  } catch (error) {
+    console.warn(`Unable to read Codex Companion config at ${configPath}:`, error)
+  }
+}
+
+function saveSetupConfig(rootDir) {
+  const nextRootDir = path.resolve(rootDir)
+  mkdirSync(getDataDir(), { recursive: true })
+  writeFileSync(
+    getConfigPath(),
+    `${JSON.stringify({ issueRootDir: nextRootDir }, null, 2)}\n`,
+  )
+  configuredRootDir = nextRootDir
+  process.env.ISSUE_ROOT_DIR = nextRootDir
+}
+
+function normalizeIssueRootDir(candidatePath) {
+  const inputPath = String(candidatePath ?? '').trim()
+  if (!inputPath) {
+    return undefined
+  }
+
+  const resolvedPath = path.resolve(inputPath)
+
+  if (hasProjectsFile(resolvedPath)) {
+    return resolvedPath
+  }
+
+  if (existsSync(path.join(resolvedPath, 'projects.json'))) {
+    return path.dirname(resolvedPath)
+  }
+
+  return undefined
 }
 
 async function readProjects() {
@@ -125,6 +193,118 @@ async function runGit(args) {
       output,
     }
   }
+}
+
+async function runGitIn(cwd, args, timeout = 30000) {
+  try {
+    const result = await execFileAsync('git', args, {
+      cwd,
+      timeout,
+    })
+
+    return {
+      ok: true,
+      output: [result.stdout, result.stderr].filter(Boolean).join('\n').trim(),
+    }
+  } catch (error) {
+    const output = [error.stdout, error.stderr, error.message].filter(Boolean).join('\n').trim()
+    return {
+      ok: false,
+      output,
+    }
+  }
+}
+
+function getSetupState() {
+  return {
+    configured: hasProjectsFile(),
+    dataDir: getDataDir(),
+    issuesDir: getIssuesDir(),
+    rootDir: getRootDir(),
+  }
+}
+
+function setupStatus(response) {
+  sendJson(response, 200, getSetupState())
+}
+
+function setupStarter(response) {
+  const targetRootDir = getDataDir()
+  const targetProjectsPath = path.join(targetRootDir, 'issues', 'projects.json')
+
+  if (existsSync(targetProjectsPath)) {
+    saveSetupConfig(targetRootDir)
+    sendJson(response, 200, {
+      ...getSetupState(),
+      message: 'Using existing starter issue data.',
+    })
+    return
+  }
+
+  mkdirSync(targetRootDir, { recursive: true })
+  cpSync(getBundledIssuesDir(), path.join(targetRootDir, 'issues'), {
+    recursive: true,
+    errorOnExist: false,
+    force: false,
+  })
+  saveSetupConfig(targetRootDir)
+  sendJson(response, 201, {
+    ...getSetupState(),
+    message: 'Starter issue data created.',
+  })
+}
+
+async function setupExisting(response, request) {
+  const body = await readRequestJson(request)
+  const selectedRootDir = normalizeIssueRootDir(body.path)
+
+  if (!selectedRootDir) {
+    sendError(response, 400, 'Choose a folder that contains issues/projects.json.')
+    return
+  }
+
+  saveSetupConfig(selectedRootDir)
+  sendJson(response, 200, {
+    ...getSetupState(),
+    message: 'Existing issue data connected.',
+  })
+}
+
+async function setupClone(response, request) {
+  const body = await readRequestJson(request)
+  const remoteUrl = String(body.remoteUrl ?? '').trim()
+
+  if (!remoteUrl) {
+    sendError(response, 400, 'GitHub repository URL is required.')
+    return
+  }
+
+  const dataDir = getDataDir()
+  const targetRootDir = path.join(dataDir, 'issue-repository')
+  mkdirSync(dataDir, { recursive: true })
+
+  if (existsSync(targetRootDir) && readdirSync(targetRootDir).length > 0) {
+    sendError(response, 409, `${targetRootDir} already exists and is not empty.`)
+    return
+  }
+
+  const clone = await runGitIn(dataDir, ['clone', remoteUrl, targetRootDir], 120000)
+  if (!clone.ok) {
+    sendError(response, 409, clone.output || 'Git clone failed.')
+    return
+  }
+
+  if (!hasProjectsFile(targetRootDir)) {
+    sendError(response, 400, 'The cloned repository does not contain issues/projects.json.')
+    return
+  }
+
+  saveSetupConfig(targetRootDir)
+  sendJson(response, 201, {
+    ...getSetupState(),
+    message: 'GitHub issue repository cloned and connected.',
+    output: clone.output,
+  })
 }
 
 async function syncStatus(response) {
@@ -498,6 +678,11 @@ async function route(request, response) {
     return
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/setup') {
+    setupStatus(response)
+    return
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/issues') {
     await getIssues(response, url.searchParams)
     return
@@ -515,6 +700,21 @@ async function route(request, response) {
 
   if (request.method === 'POST' && url.pathname === '/api/projects') {
     await addProject(response, request)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/setup/starter') {
+    setupStarter(response)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/setup/existing') {
+    await setupExisting(response, request)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/setup/clone') {
+    await setupClone(response, request)
     return
   }
 
@@ -549,6 +749,8 @@ async function route(request, response) {
 }
 
 export function startIssueApiServer(options = {}) {
+  loadSetupConfig()
+
   const serverPort = Number(options.port ?? port)
   const server = createServer((request, response) => {
     route(request, response).catch((error) => {
