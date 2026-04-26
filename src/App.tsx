@@ -1709,7 +1709,7 @@ function App() {
             <section className="queue-card">
               <div className="queue-card-header">
                 <div>
-                  <h3>User Added</h3>
+                  <h3>User Added tasks and issues</h3>
                   <p>Snags, tweaks, and future ideas.</p>
                 </div>
                 <span>{queueCounts.user}</span>

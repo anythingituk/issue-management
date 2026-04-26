@@ -814,7 +814,7 @@ button {
 .view-switcher button.active {
   border-color: var(--border);
   background: var(--control);
-  color: var(--text-strong);
+  color: #0073fb;
 }
 
 .search-field {
@@ -873,8 +873,11 @@ button {
 
 .queue-card-header h3 {
   margin: 0 0 4px;
-  color: var(--text-strong);
-  font-size: 15px;
+  color: var(--companion-cyan);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .queue-card-header p {
