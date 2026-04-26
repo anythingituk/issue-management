@@ -1255,7 +1255,9 @@ function App() {
   }
 
   function needsSshPassphrase(message: string) {
-    return /ssh-askpass|permission denied \(publickey\)|could not read from remote repository/i.test(message)
+    return /ssh-askpass|permission denied \(publickey\)|could not read from remote repository|command failed: git (pull|push)|sync failed: git (pull|push)|git (pull|push)( --rebase)?$/i.test(
+      message,
+    )
   }
 
   async function runSync(action: SyncAction) {
@@ -1863,38 +1865,6 @@ function App() {
           ) : null}
         </div>
 
-        <section className={`ai-panel ${aiState.connected ? 'connected' : ''}`} aria-label="ChatGPT assistant">
-          <div className="ai-panel-header">
-            <p className="section-label">ChatGPT</p>
-            {aiState.connected ? <span>Connected</span> : null}
-          </div>
-          {aiState.connected ? (
-            <div className="ai-connected">
-              <p>
-                ChatGPT is ready for issue writing assistance.
-                {aiState.model ? <small>{aiState.model}</small> : null}
-              </p>
-              <button className="ai-disconnect-link" onClick={disconnectOpenAi} type="button">
-                Disconnect
-              </button>
-            </div>
-          ) : (
-            <form className="ai-connect-form" onSubmit={connectOpenAi}>
-              <p>Connect OpenAI to enable title suggestions and later writing assistance.</p>
-              <input
-                autoComplete="off"
-                onChange={(event) => setOpenAiApiKey(event.target.value)}
-                placeholder="OpenAI API key"
-                type="password"
-                value={openAiApiKey}
-              />
-              <button disabled={isConnectingAi || !openAiApiKey.trim()} type="submit">
-                {isConnectingAi ? 'Connecting' : 'Connect ChatGPT'}
-              </button>
-            </form>
-          )}
-        </section>
-
         <div className={`sync-panel ${syncState.tone}`}>
           <p className="section-label">GitHub Sync</p>
           <div className="sync-state">
@@ -1957,6 +1927,38 @@ function App() {
           </div>
           {syncState.output ? <pre className="sync-output">{syncState.output}</pre> : null}
         </div>
+
+        <section className={`ai-panel ${aiState.connected ? 'connected' : ''}`} aria-label="ChatGPT assistant">
+          <div className="ai-panel-header">
+            <p className="section-label">ChatGPT</p>
+            {aiState.connected ? <span>Connected</span> : null}
+          </div>
+          {aiState.connected ? (
+            <div className="ai-connected">
+              <p>
+                ChatGPT is ready for issue writing assistance.
+                {aiState.model ? <small>{aiState.model}</small> : null}
+              </p>
+              <button className="ai-disconnect-link" onClick={disconnectOpenAi} type="button">
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <form className="ai-connect-form" onSubmit={connectOpenAi}>
+              <p>Connect OpenAI to enable title suggestions and later writing assistance.</p>
+              <input
+                autoComplete="off"
+                onChange={(event) => setOpenAiApiKey(event.target.value)}
+                placeholder="OpenAI API key"
+                type="password"
+                value={openAiApiKey}
+              />
+              <button disabled={isConnectingAi || !openAiApiKey.trim()} type="submit">
+                {isConnectingAi ? 'Connecting' : 'Connect ChatGPT'}
+              </button>
+            </form>
+          )}
+        </section>
       </aside>
 
       <div
