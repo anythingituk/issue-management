@@ -104,13 +104,21 @@
   font-size: 12px;
 }
 
-.add-project-form {
+.add-project-form,
+.edit-project-form {
   display: grid;
   gap: 8px;
   padding-top: 4px;
 }
 
-.add-project-form input {
+.edit-project-form {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.add-project-form input,
+.edit-project-form input {
   width: 100%;
   min-width: 0;
   height: 32px;
@@ -129,7 +137,8 @@
   gap: 8px;
 }
 
-.add-project-form button {
+.add-project-form button,
+.edit-project-form button {
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--control);
@@ -138,7 +147,8 @@
   font-size: 13px;
 }
 
-.add-project-form button:disabled {
+.add-project-form button:disabled,
+.edit-project-form button:disabled {
   cursor: wait;
   opacity: 0.65;
 }

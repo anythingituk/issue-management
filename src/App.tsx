@@ -101,6 +101,10 @@ function App() {
   const [newProjectPath, setNewProjectPath] = useState('')
   const [newProjectBranch, setNewProjectBranch] = useState('main')
   const [isAddingProject, setIsAddingProject] = useState(false)
+  const [editProjectName, setEditProjectName] = useState('')
+  const [editProjectPath, setEditProjectPath] = useState('')
+  const [editProjectBranch, setEditProjectBranch] = useState('')
+  const [isSavingProject, setIsSavingProject] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editFile, setEditFile] = useState('')
   const [editCategory, setEditCategory] = useState<IssueCategory>('snag')
@@ -192,6 +196,20 @@ function App() {
   }, [selectedProjectId])
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setEditProjectName('')
+      setEditProjectPath('')
+      setEditProjectBranch('')
+      return
+    }
+
+    setEditProjectName(selectedProject.name)
+    setEditProjectPath(selectedProject.path)
+    setEditProjectBranch(selectedProject.branch)
+  }, [selectedProject])
+
   const filteredIssues = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
 
@@ -416,6 +434,50 @@ function App() {
     }
   }
 
+  async function saveProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!selectedProject) {
+      return
+    }
+
+    const name = editProjectName.trim()
+    const projectPath = editProjectPath.trim()
+
+    if (!name || !projectPath) {
+      setAppError('Project name and path are required.')
+      return
+    }
+
+    setIsSavingProject(true)
+
+    try {
+      const payload = await apiJson<{ project: Project }>(
+        `/api/projects/${encodeURIComponent(selectedProject.id)}`,
+        {
+          body: JSON.stringify({
+            name,
+            path: projectPath,
+            branch: editProjectBranch.trim() || 'main',
+          }),
+          method: 'PATCH',
+        },
+      )
+
+      setProjects((currentProjects) =>
+        currentProjects.map((project) =>
+          project.id === selectedProject.id ? payload.project : project,
+        ),
+      )
+      setAppError('')
+      await refreshSyncStatus()
+    } catch (error) {
+      setAppError(error instanceof Error ? error.message : 'Unable to save project.')
+    } finally {
+      setIsSavingProject(false)
+    }
+  }
+
   async function refreshSelectedProject() {
     if (!selectedProjectId) {
       return
@@ -516,6 +578,31 @@ function App() {
               </button>
             </div>
           </form>
+          {selectedProject ? (
+            <form className="edit-project-form" onSubmit={saveProject}>
+              <p className="section-label">Selected Project</p>
+              <input
+                aria-label="Selected project name"
+                onChange={(event) => setEditProjectName(event.target.value)}
+                value={editProjectName}
+              />
+              <input
+                aria-label="Selected project path"
+                onChange={(event) => setEditProjectPath(event.target.value)}
+                value={editProjectPath}
+              />
+              <div className="add-project-row">
+                <input
+                  aria-label="Selected project branch"
+                  onChange={(event) => setEditProjectBranch(event.target.value)}
+                  value={editProjectBranch}
+                />
+                <button disabled={isSavingProject} type="submit" title="Save project">
+                  Save
+                </button>
+              </div>
+            </form>
+          ) : null}
         </div>
 
         <div className={`sync-panel ${syncState.tone}`}>

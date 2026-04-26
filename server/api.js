@@ -308,6 +308,59 @@ async function addProject(response, request) {
   })
 }
 
+async function patchProject(response, request, projectId) {
+  const body = await readRequestJson(request)
+  const projects = await readProjects()
+  const projectIndex = projects.findIndex((project) => project.id === projectId)
+
+  if (projectIndex === -1) {
+    sendError(response, 404, 'Project not found.')
+    return
+  }
+
+  const currentProject = projects[projectIndex]
+  const name = body.name === undefined ? currentProject.name : String(body.name).trim()
+  const projectPath = body.path === undefined ? currentProject.path : String(body.path).trim()
+  const branch = body.branch === undefined ? currentProject.branch : String(body.branch).trim() || 'main'
+
+  if (!name) {
+    sendError(response, 400, 'Project name is required.')
+    return
+  }
+
+  if (!projectPath) {
+    sendError(response, 400, 'Project path is required.')
+    return
+  }
+
+  if (
+    projects.some(
+      (project) =>
+        project.id !== projectId && path.resolve(project.path) === path.resolve(projectPath),
+    )
+  ) {
+    sendError(response, 409, 'A project with this path already exists.')
+    return
+  }
+
+  const project = {
+    ...currentProject,
+    name,
+    path: projectPath,
+    branch,
+  }
+  const nextProjects = [...projects]
+  nextProjects[projectIndex] = project
+  await writeJson(projectsPath, nextProjects)
+
+  sendJson(response, 200, {
+    project: {
+      ...project,
+      openCount: (await readProjectIssues(project)).filter((issue) => issue.status !== 'fixed').length,
+    },
+  })
+}
+
 async function getIssues(response, searchParams) {
   const projectId = searchParams.get('project')
   if (!projectId) {
@@ -448,6 +501,12 @@ async function route(request, response) {
 
   if (request.method === 'POST' && url.pathname === '/api/projects') {
     await addProject(response, request)
+    return
+  }
+
+  const projectMatch = url.pathname.match(/^\/api\/projects\/([^/]+)$/)
+  if (request.method === 'PATCH' && projectMatch) {
+    await patchProject(response, request, decodeURIComponent(projectMatch[1]))
     return
   }
 
