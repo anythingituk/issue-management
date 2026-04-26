@@ -689,11 +689,59 @@ button {
 
 .sync-history-grid {
   display: grid;
-  grid-template-columns: 130px minmax(0, 1fr) 80px;
-  gap: 12px;
-  padding: 12px 16px;
   color: var(--text);
   font-size: 12px;
+}
+
+.sync-history-row {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) 88px;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sync-history-row:last-child {
+  border-bottom: 0;
+}
+
+.sync-history-row.current {
+  background: rgba(77, 141, 255, 0.08);
+  color: var(--text-strong);
+}
+
+.sync-history-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-history-row span:nth-child(2) {
+  display: grid;
+  gap: 2px;
+}
+
+.sync-history-row small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-history-row strong {
+  justify-self: end;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.sync-history-empty {
+  padding: 14px 16px;
+  color: var(--text-muted);
 }
 
 .search-field input::placeholder {
@@ -964,6 +1012,63 @@ button {
 .detail-form {
   display: grid;
   gap: 14px;
+}
+
+.detail-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(17, 25, 34, 0.72);
+}
+
+.detail-context div {
+  min-width: 0;
+}
+
+.detail-context span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.detail-context strong {
+  display: block;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-context code {
+  grid-column: 1 / -1;
+  width: 100%;
+  background: var(--control);
+}
+
+.detail-queue-note {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.detail-queue-note.user {
+  border-color: var(--blue-soft);
+  background: rgba(77, 141, 255, 0.1);
+}
+
+.detail-queue-note.codex {
+  border-color: var(--green-soft);
+  background: rgba(59, 178, 115, 0.1);
 }
 
 .detail-field {

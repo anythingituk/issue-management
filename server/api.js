@@ -353,6 +353,58 @@ async function syncStatus(response) {
   })
 }
 
+async function syncHistory(response) {
+  const remote = await runGit(['config', '--get', 'remote.origin.url'])
+  const status = await runGit(['status', '--short'])
+  const log = await runGit([
+    'log',
+    '--max-count=8',
+    '--date=iso-strict',
+    '--pretty=format:%H%x1f%h%x1f%ad%x1f%s',
+  ])
+
+  const events = []
+
+  if (status.ok && status.output) {
+    const changedFiles = status.output.split('\n')
+    events.push({
+      id: 'working-tree',
+      createdAt: new Date().toISOString(),
+      detail: `${changedFiles.length} local file change${
+        changedFiles.length === 1 ? '' : 's'
+      } waiting for sync`,
+      status: 'Pending',
+      title: 'Local issue changes',
+      type: 'working-tree',
+    })
+  }
+
+  if (log.ok && log.output) {
+    for (const line of log.output.split('\n')) {
+      const [hash, shortHash, createdAt, title] = line.split('\x1f')
+      if (!hash || !shortHash || !createdAt || !title) {
+        continue
+      }
+
+      events.push({
+        id: hash,
+        createdAt,
+        detail: shortHash,
+        shortHash,
+        status: 'Committed',
+        title,
+        type: 'commit',
+      })
+    }
+  }
+
+  sendJson(response, 200, {
+    checkedAt: new Date().toISOString(),
+    events,
+    remoteUrl: remote.ok ? remote.output : '',
+  })
+}
+
 async function syncPull(response) {
   const result = await runGit(['pull', '--rebase'])
 
@@ -794,6 +846,11 @@ async function route(request, response) {
 
   if (request.method === 'GET' && url.pathname === '/api/sync/status') {
     await syncStatus(response)
+    return
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/sync/history') {
+    await syncHistory(response)
     return
   }
 

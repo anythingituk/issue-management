@@ -46,6 +46,15 @@ type SyncState = {
   timestamp?: string
 }
 
+type SyncEvent = {
+  id: string
+  createdAt?: string
+  detail?: string
+  shortHash?: string
+  status: string
+  title: string
+}
+
 type SetupState = {
   configured: boolean
   dataDir: string
@@ -162,6 +171,7 @@ function App() {
     tone: 'ready',
     message: 'Checking GitHub sync...',
   })
+  const [syncHistory, setSyncHistory] = useState<SyncEvent[]>([])
 
   async function loadProjectList() {
     const payload = await apiJson<{ projects: Project[] }>('/api/projects')
@@ -178,6 +188,14 @@ function App() {
   async function loadQueue() {
     const payload = await apiJson<{ issues: QueueIssue[] }>('/api/queue')
     setQueueIssues(payload.issues)
+  }
+
+  async function loadSyncHistory() {
+    const payload = await apiJson<{ events: SyncEvent[]; remoteUrl?: string }>('/api/sync/history')
+    setSyncHistory(payload.events)
+    if (payload.remoteUrl) {
+      setGitRemoteUrl(payload.remoteUrl)
+    }
   }
 
   useEffect(() => {
@@ -365,6 +383,8 @@ function App() {
     filteredIssues[0]
   const detailProject =
     projects.find((project) => project.id === selectedIssue?.projectId) ?? selectedProject
+  const selectedIssueQueueContext =
+    selectedIssue && queueIssues.find((issue) => issue.id === selectedIssue.id)
 
   useEffect(() => {
     if (!selectedIssue) {
@@ -409,6 +429,7 @@ function App() {
         remoteUrl: payload.remoteUrl,
         timestamp: payload.checkedAt,
       })
+      await loadSyncHistory()
     } catch (error) {
       setSyncState({
         tone: 'error',
@@ -828,6 +849,7 @@ function App() {
         output: payload.output,
         timestamp: payload.completedAt ?? new Date().toISOString(),
       })
+      await loadSyncHistory()
     } catch (error) {
       setSyncState({
         tone: 'error',
@@ -873,6 +895,7 @@ function App() {
         remoteUrl: payload.remoteUrl ?? remoteUrl,
         timestamp: payload.checkedAt ?? new Date().toISOString(),
       })
+      await loadSyncHistory()
     } catch (error) {
       setSyncState({
         tone: 'error',
@@ -1325,9 +1348,24 @@ function App() {
                 <span>{syncState.tone === 'error' ? 'Action needed' : 'Ready'}</span>
               </div>
               <div className="sync-history-grid">
-                <span>Now</span>
-                <span>{syncState.message}</span>
-                <span>{syncState.timestamp ? formatTime(syncState.timestamp) : 'Pending'}</span>
+                <div className="sync-history-row current">
+                  <span>Now</span>
+                  <span>{syncState.message}</span>
+                  <strong>{syncState.timestamp ? formatTime(syncState.timestamp) : 'Pending'}</strong>
+                </div>
+                {syncHistory.map((event) => (
+                  <div className="sync-history-row" key={event.id}>
+                    <span>{event.createdAt ? formatDate(event.createdAt) : 'Git'}</span>
+                    <span>
+                      {event.title}
+                      {event.detail ? <small>{event.detail}</small> : null}
+                    </span>
+                    <strong>{event.status}</strong>
+                  </div>
+                ))}
+                {syncHistory.length === 0 ? (
+                  <div className="sync-history-empty">No Git history found for this issue store yet.</div>
+                ) : null}
               </div>
             </section>
           </div>
@@ -1503,6 +1541,28 @@ function App() {
                   />
                 </label>
                 <span className={`status-pill ${selectedIssue.status}`}>{statusLabels[selectedIssue.status]}</span>
+              </div>
+
+              <div className="detail-context" aria-label="Issue context">
+                <div>
+                  <span>Source</span>
+                  <strong>{selectedIssue.source}</strong>
+                </div>
+                <div>
+                  <span>Project</span>
+                  <strong>{selectedIssueQueueContext?.projectName ?? detailProject.name}</strong>
+                </div>
+                <div>
+                  <span>Category</span>
+                  <strong>{categoryLabels[selectedIssue.category]}</strong>
+                </div>
+                <code>{selectedIssue.file || selectedIssueQueueContext?.projectPath || detailProject.path}</code>
+              </div>
+
+              <div className={`detail-queue-note ${selectedIssue.source.toLowerCase()}`}>
+                {selectedIssue.source === 'User'
+                  ? 'User-added item. Codex should check this against current work and pick it up when it fits the active project.'
+                  : 'Codex-created item. Keep the status moving so the workbench reflects what Codex is actively handling.'}
               </div>
 
               <label className="detail-field">
