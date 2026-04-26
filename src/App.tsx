@@ -1596,22 +1596,6 @@ function App() {
             >
               Sync
             </button>
-            <button
-              disabled={syncState.tone === 'working'}
-              onClick={() => runSync('pull')}
-              type="button"
-              title="Pull the shared issue store for all projects from GitHub"
-            >
-              Pull
-            </button>
-            <button
-              disabled={syncState.tone === 'working'}
-              onClick={() => runSync('push')}
-              type="button"
-              title="Commit and push the shared issue store for all projects to GitHub"
-            >
-              Push
-            </button>
           </div>
           {syncState.output ? <pre className="sync-output">{syncState.output}</pre> : null}
         </div>

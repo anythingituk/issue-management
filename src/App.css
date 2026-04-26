@@ -669,7 +669,6 @@
 
 .sync-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
@@ -711,7 +710,6 @@ button {
 }
 
 .sync-actions .primary-sync {
-  grid-column: 1 / -1;
   background: var(--text-strong);
   color: var(--surface);
 }
