@@ -1177,8 +1177,7 @@ function App() {
         <div className="brand-block">
           <img className="brand-mark" src="/codex-companion-icon.png" alt="" aria-hidden="true" />
           <div>
-            <p className="eyebrow">Codex Companion</p>
-            <h1>Issues</h1>
+            <p className="eyebrow brand-title">Codex Companion</p>
           </div>
         </div>
 
