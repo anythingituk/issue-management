@@ -394,9 +394,10 @@
   gap: 8px;
   margin-top: 4px;
   padding: 10px;
-  border: 1px solid var(--blue-soft);
+  border: 1px solid var(--red);
   border-radius: 8px;
-  background: rgba(77, 141, 255, 0.08);
+  background: rgba(255, 92, 115, 0.08);
+  box-shadow: 0 0 0 3px rgba(255, 92, 115, 0.08);
 }
 
 .ssh-passphrase-form label {
@@ -422,8 +423,15 @@
 
 .ssh-passphrase-form input {
   padding: 0 9px;
+  border-color: rgba(255, 92, 115, 0.55);
   background: var(--panel);
   color: var(--text-strong);
+}
+
+.ssh-passphrase-form input:focus-visible {
+  outline: 0;
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(255, 92, 115, 0.18);
 }
 
 .ssh-passphrase-form button {
