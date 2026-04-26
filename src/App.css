@@ -112,7 +112,9 @@
 
 .companion-shell {
   display: grid;
-  grid-template-columns: 260px minmax(560px, 1fr) 340px;
+  grid-template-columns:
+    var(--project-sidebar-width, 260px) 6px minmax(560px, 1fr) 6px
+    var(--detail-panel-width, 340px);
   min-height: 100vh;
   background:
     radial-gradient(circle at 46% -20%, rgba(64, 122, 200, 0.18), transparent 34%),
@@ -132,6 +134,38 @@
   gap: 22px;
   padding: 18px 16px;
   border-right: 1px solid var(--border);
+}
+
+.pane-resize-handle {
+  position: relative;
+  z-index: 2;
+  width: 6px;
+  min-width: 6px;
+  background: transparent;
+  cursor: col-resize;
+  outline: none;
+}
+
+.pane-resize-handle::after {
+  position: absolute;
+  inset: 0 2px;
+  background: transparent;
+  content: '';
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.pane-resize-handle:hover::after,
+.pane-resize-handle:focus-visible::after {
+  background: #0073fb;
+  box-shadow: 0 0 0 3px rgba(0, 115, 251, 0.16);
+}
+
+.is-resizing-pane,
+.is-resizing-pane * {
+  cursor: col-resize !important;
+  user-select: none;
 }
 
 .brand-block {
@@ -1637,6 +1671,10 @@ code {
 @media (max-width: 1180px) {
   .companion-shell {
     grid-template-columns: 240px minmax(360px, 1fr);
+  }
+
+  .pane-resize-handle {
+    display: none;
   }
 
   .detail-panel {

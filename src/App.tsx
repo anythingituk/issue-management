@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { CSSProperties, FormEvent, PointerEvent } from 'react'
 import './App.css'
 
 type IssueStatus = 'open' | 'in-progress' | 'fixed' | 'deferred'
@@ -10,11 +10,38 @@ type StatusFilter = IssueStatus | 'all'
 type CategoryFilter = IssueCategory | 'all'
 type SourceFilter = IssueSource | 'all'
 type SyncAction = 'pull' | 'push' | 'all'
+type ResizePane = 'project' | 'detail'
 type Toast = {
   id: string
   message: string
   title: string
   tone: 'info' | 'success' | 'warning'
+}
+
+const projectSidebarBounds = {
+  default: 260,
+  max: 420,
+  min: 220,
+}
+const detailPanelBounds = {
+  default: 340,
+  max: 560,
+  min: 300,
+}
+const minimumIssuePaneWidth = 560
+const resizeHandleWidth = 12
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max)
+}
+
+function readStoredWidth(key: string, fallback: number, min: number, max: number) {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+
+  const value = Number(window.localStorage.getItem(key))
+  return Number.isFinite(value) ? clamp(value, min, max) : fallback
 }
 
 type Project = {
@@ -207,6 +234,22 @@ function App() {
   const [gitRemoteUrl, setGitRemoteUrl] = useState('')
   const [isConnectingGit, setIsConnectingGit] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [projectSidebarWidth, setProjectSidebarWidth] = useState(() =>
+    readStoredWidth(
+      'codex-companion-project-sidebar-width',
+      projectSidebarBounds.default,
+      projectSidebarBounds.min,
+      projectSidebarBounds.max,
+    ),
+  )
+  const [detailPanelWidth, setDetailPanelWidth] = useState(() =>
+    readStoredWidth(
+      'codex-companion-detail-panel-width',
+      detailPanelBounds.default,
+      detailPanelBounds.min,
+      detailPanelBounds.max,
+    ),
+  )
   const [syncState, setSyncState] = useState<SyncState>({
     tone: 'ready',
     message: 'Checking GitHub sync...',
@@ -221,6 +264,93 @@ function App() {
       ...toastContent,
       id: `toast-${Date.now()}`,
     })
+  }
+
+  function storePaneWidth(pane: ResizePane, width: number) {
+    const storageKey =
+      pane === 'project'
+        ? 'codex-companion-project-sidebar-width'
+        : 'codex-companion-detail-panel-width'
+    window.localStorage.setItem(storageKey, String(width))
+  }
+
+  function getMaximumPaneWidth(pane: ResizePane) {
+    const otherPaneWidth = pane === 'project' ? detailPanelWidth : projectSidebarWidth
+    const bounds = pane === 'project' ? projectSidebarBounds : detailPanelBounds
+    const maxWidthByViewport =
+      window.innerWidth - minimumIssuePaneWidth - resizeHandleWidth - otherPaneWidth
+
+    return Math.max(bounds.min, Math.min(bounds.max, maxWidthByViewport))
+  }
+
+  function resizePaneWithKeyboard(pane: ResizePane, direction: -1 | 1) {
+    const step = 16
+
+    if (pane === 'project') {
+      setProjectSidebarWidth((currentWidth) => {
+        const nextWidth = clamp(
+          currentWidth + direction * step,
+          projectSidebarBounds.min,
+          getMaximumPaneWidth('project'),
+        )
+        storePaneWidth(pane, nextWidth)
+        return nextWidth
+      })
+      return
+    }
+
+    setDetailPanelWidth((currentWidth) => {
+      const nextWidth = clamp(
+        currentWidth + direction * step,
+        detailPanelBounds.min,
+        getMaximumPaneWidth('detail'),
+      )
+      storePaneWidth(pane, nextWidth)
+      return nextWidth
+    })
+  }
+
+  function startPaneResize(pane: ResizePane, event: PointerEvent<HTMLDivElement>) {
+    event.preventDefault()
+
+    const startX = event.clientX
+    const startWidth = pane === 'project' ? projectSidebarWidth : detailPanelWidth
+    const bounds = pane === 'project' ? projectSidebarBounds : detailPanelBounds
+    const maxWidth = getMaximumPaneWidth(pane)
+
+    document.body.classList.add('is-resizing-pane')
+
+    function handlePointerMove(pointerEvent: globalThis.PointerEvent) {
+      const deltaX = pointerEvent.clientX - startX
+      const nextWidth = clamp(
+        pane === 'project' ? startWidth + deltaX : startWidth - deltaX,
+        bounds.min,
+        maxWidth,
+      )
+
+      if (pane === 'project') {
+        setProjectSidebarWidth(nextWidth)
+      } else {
+        setDetailPanelWidth(nextWidth)
+      }
+    }
+
+    function handlePointerUp(pointerEvent: globalThis.PointerEvent) {
+      const deltaX = pointerEvent.clientX - startX
+      const nextWidth = clamp(
+        pane === 'project' ? startWidth + deltaX : startWidth - deltaX,
+        bounds.min,
+        maxWidth,
+      )
+
+      storePaneWidth(pane, nextWidth)
+      document.body.classList.remove('is-resizing-pane')
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp, { once: true })
   }
 
   async function loadProjectList() {
@@ -1288,8 +1418,13 @@ function App() {
     )
   }
 
+  const companionShellStyle = {
+    '--detail-panel-width': `${detailPanelWidth}px`,
+    '--project-sidebar-width': `${projectSidebarWidth}px`,
+  } as CSSProperties
+
   return (
-    <main className="companion-shell">
+    <main className="companion-shell" style={companionShellStyle}>
       <aside className="project-sidebar" aria-label="Projects">
         <div className="brand-block">
           <img className="brand-mark" src="codex-companion-icon.png" alt="" aria-hidden="true" />
@@ -1600,6 +1735,26 @@ function App() {
           {syncState.output ? <pre className="sync-output">{syncState.output}</pre> : null}
         </div>
       </aside>
+
+      <div
+        aria-label="Resize project sidebar"
+        aria-orientation="vertical"
+        className="pane-resize-handle project-resize-handle"
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault()
+            resizePaneWithKeyboard('project', -1)
+          }
+          if (event.key === 'ArrowRight') {
+            event.preventDefault()
+            resizePaneWithKeyboard('project', 1)
+          }
+        }}
+        onPointerDown={(event) => startPaneResize('project', event)}
+        role="separator"
+        tabIndex={0}
+        title="Drag to resize projects sidebar"
+      />
 
       <section className="issue-pane" aria-label="Issues">
         <header className="pane-header">
@@ -1943,6 +2098,26 @@ function App() {
           </div>
         ) : null}
       </section>
+
+      <div
+        aria-label="Resize issue details panel"
+        aria-orientation="vertical"
+        className="pane-resize-handle detail-resize-handle"
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault()
+            resizePaneWithKeyboard('detail', 1)
+          }
+          if (event.key === 'ArrowRight') {
+            event.preventDefault()
+            resizePaneWithKeyboard('detail', -1)
+          }
+        }}
+        onPointerDown={(event) => startPaneResize('detail', event)}
+        role="separator"
+        tabIndex={0}
+        title="Drag to resize issue details panel"
+      />
 
       <aside className="detail-panel" aria-label="Issue details">
         {selectedIssue && detailProject ? (
