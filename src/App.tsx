@@ -1184,7 +1184,6 @@ function App() {
               Connect
             </button>
           </form>
-          {syncState.output ? <pre className="sync-output">{syncState.output}</pre> : null}
           {pendingSshAction ? (
             <form
               className="ssh-passphrase-form"
@@ -1235,6 +1234,7 @@ function App() {
               Push
             </button>
           </div>
+          {syncState.output ? <pre className="sync-output">{syncState.output}</pre> : null}
         </div>
       </aside>
 

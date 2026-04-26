@@ -376,7 +376,7 @@
 
 .sync-output {
   overflow: auto;
-  max-height: 88px;
+  max-height: 118px;
   margin: 0;
   padding: 8px;
   border: 1px solid var(--border);
@@ -392,7 +392,7 @@
 .ssh-passphrase-form {
   display: grid;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 4px;
   padding: 10px;
   border: 1px solid var(--blue-soft);
   border-radius: 8px;
