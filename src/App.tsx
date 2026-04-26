@@ -1269,7 +1269,7 @@ function App() {
           </div>
         </div>
 
-        <div className="sidebar-section">
+        <div className="sidebar-section projects-panel">
           <div className="sidebar-section-header">
             <p className="section-label projects-label">Projects</p>
             <button
