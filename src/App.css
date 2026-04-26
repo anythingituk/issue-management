@@ -272,7 +272,8 @@
 }
 
 .project-sidebar-actions > button,
-.codex-projects-button {
+.codex-projects-header button,
+.codex-project-row button {
   min-height: 32px;
   padding: 0 10px;
   border: 1px solid var(--border);
@@ -350,13 +351,10 @@
 
 .add-project-form button:disabled,
 .edit-project-form button:disabled,
-.data-store-panel button:disabled {
+.data-store-panel button:disabled,
+.codex-projects-header button:disabled,
+.codex-project-row button:disabled {
   cursor: wait;
-  opacity: 0.65;
-}
-
-.codex-projects-button:disabled {
-  cursor: not-allowed;
   opacity: 0.65;
 }
 
@@ -382,8 +380,76 @@
   color: var(--surface);
 }
 
-.codex-projects-button {
-  width: 100%;
+.codex-projects-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.codex-projects-header,
+.codex-project-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.codex-project-list {
+  display: grid;
+  gap: 7px;
+}
+
+.codex-project-row {
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(17, 25, 34, 0.54);
+}
+
+.codex-project-row.tracked,
+.codex-project-row.missing {
+  opacity: 0.58;
+}
+
+.codex-project-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.codex-project-row strong,
+.codex-project-row code,
+.codex-project-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-project-row strong {
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
+.codex-project-row code {
+  width: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.codex-project-row span,
+.codex-project-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.codex-project-row button {
+  min-width: 54px;
+}
+
+.codex-project-row button:disabled {
+  cursor: not-allowed;
 }
 
 .sync-panel {

@@ -63,6 +63,17 @@ function getBundledIssuesDir() {
   return path.join(defaultRootDir, 'issues')
 }
 
+function getCodexConfigPath() {
+  const candidates = [
+    process.env.CODEX_HOME ? path.join(process.env.CODEX_HOME, 'config.toml') : '',
+    process.env.HOME ? path.join(process.env.HOME, '.codex', 'config.toml') : '',
+    process.env.USERPROFILE ? path.join(process.env.USERPROFILE, '.codex', 'config.toml') : '',
+    process.env.USER ? `/mnt/c/Users/${process.env.USER}/.codex/config.toml` : '',
+  ].filter(Boolean)
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? ''
+}
+
 function hasProjectsFile(rootDir = getRootDir()) {
   return existsSync(path.join(rootDir, 'issues', 'projects.json'))
 }
@@ -601,6 +612,43 @@ async function getProjects(response) {
   sendJson(response, 200, { projects: projectsWithCounts })
 }
 
+async function getCodexProjects(response) {
+  const configPath = getCodexConfigPath()
+  if (!configPath) {
+    sendJson(response, 200, { configPath: '', projects: [] })
+    return
+  }
+
+  const config = readFileSync(configPath, 'utf8')
+  const projects = await readProjects()
+  const trackedPaths = new Set(projects.map((project) => path.resolve(project.path).toLowerCase()))
+  const projectPaths = [...config.matchAll(/^\[projects\."(.+)"\]$/gm)].map((match) =>
+    match[1].replace(/\\"/g, '"'),
+  )
+  const uniqueProjectPaths = [...new Set(projectPaths)]
+  const codexProjects = await Promise.all(
+    uniqueProjectPaths.map(async (projectPath) => {
+      const branch = existsSync(projectPath)
+        ? await runGitIn(projectPath, ['branch', '--show-current'])
+        : { ok: false, output: '' }
+
+      return {
+        branch: branch.ok && branch.output ? branch.output : 'main',
+        exists: existsSync(projectPath),
+        id: slugifyProjectId(path.basename(projectPath)),
+        name: path.basename(projectPath),
+        path: projectPath,
+        tracked: trackedPaths.has(path.resolve(projectPath).toLowerCase()),
+      }
+    }),
+  )
+
+  sendJson(response, 200, {
+    configPath,
+    projects: codexProjects.sort((left, right) => left.name.localeCompare(right.name)),
+  })
+}
+
 async function addProject(response, request) {
   const body = await readRequestJson(request)
   const projects = await readProjects()
@@ -869,6 +917,11 @@ async function route(request, response) {
 
   if (request.method === 'GET' && url.pathname === '/api/projects') {
     await getProjects(response)
+    return
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/codex/projects') {
+    await getCodexProjects(response)
     return
   }
 

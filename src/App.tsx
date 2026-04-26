@@ -20,6 +20,15 @@ type Project = {
   archived: boolean
 }
 
+type CodexProject = {
+  id: string
+  name: string
+  path: string
+  branch: string
+  exists: boolean
+  tracked: boolean
+}
+
 type Issue = {
   id: string
   projectId: string
@@ -147,6 +156,9 @@ function App() {
   const [editProjectBranch, setEditProjectBranch] = useState('')
   const [isSavingProject, setIsSavingProject] = useState(false)
   const [showProjectSettings, setShowProjectSettings] = useState(false)
+  const [codexProjects, setCodexProjects] = useState<CodexProject[]>([])
+  const [isLoadingCodexProjects, setIsLoadingCodexProjects] = useState(false)
+  const [addingCodexProjectPath, setAddingCodexProjectPath] = useState('')
   const [showArchivedProjects, setShowArchivedProjects] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editFile, setEditFile] = useState('')
@@ -195,6 +207,16 @@ function App() {
     setQueueIssues(payload.issues)
   }
 
+  async function loadCodexProjects() {
+    setIsLoadingCodexProjects(true)
+    try {
+      const payload = await apiJson<{ projects: CodexProject[] }>('/api/codex/projects')
+      setCodexProjects(payload.projects)
+    } finally {
+      setIsLoadingCodexProjects(false)
+    }
+  }
+
   async function loadSyncHistory() {
     const payload = await apiJson<{ events: SyncEvent[]; remoteUrl?: string }>('/api/sync/history')
     setSyncHistory(payload.events)
@@ -221,10 +243,12 @@ function App() {
         if (setup.configured) {
           await loadProjectList()
           await loadQueue()
+          await loadCodexProjects()
         } else {
           setProjects([])
           setIssues([])
           setQueueIssues([])
+          setCodexProjects([])
           setSelectedProjectId('')
           setSelectedIssueId('')
         }
@@ -471,6 +495,7 @@ function App() {
       setIssueDataPath(setup.rootDir)
       await loadProjectList()
       await loadQueue()
+      await loadCodexProjects()
       await refreshSyncStatus()
     } catch (error) {
       setSetupError(error instanceof Error ? error.message : 'Unable to complete setup.')
@@ -540,6 +565,7 @@ function App() {
       setSelectedIssueId('')
       await loadProjectList()
       await loadQueue()
+      await loadCodexProjects()
       await refreshSyncStatus()
       setAppError('')
     } catch (error) {
@@ -602,6 +628,7 @@ function App() {
       )
       setAppError('')
       await loadQueue()
+      await loadCodexProjects()
       await refreshSyncStatus()
     } catch (error) {
       setIssues(previousIssues)
@@ -726,6 +753,7 @@ function App() {
       setShowAddProjectForm(false)
       setAppError('')
       await loadQueue()
+      await loadCodexProjects()
       await refreshSyncStatus()
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Unable to add project.')
@@ -771,11 +799,38 @@ function App() {
       )
       setAppError('')
       await loadQueue()
+      await loadCodexProjects()
       await refreshSyncStatus()
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Unable to save project.')
     } finally {
       setIsSavingProject(false)
+    }
+  }
+
+  async function addCodexProject(project: CodexProject) {
+    setAddingCodexProjectPath(project.path)
+    try {
+      const payload = await apiJson<{ project: Project }>('/api/projects', {
+        body: JSON.stringify({
+          branch: project.branch || 'main',
+          name: project.name,
+          path: project.path,
+        }),
+        method: 'POST',
+      })
+
+      setProjects((currentProjects) => [...currentProjects, payload.project])
+      setSelectedProjectId(payload.project.id)
+      setPaneMode('project')
+      setAppError('')
+      await loadCodexProjects()
+      await loadQueue()
+      await refreshSyncStatus()
+    } catch (error) {
+      setAppError(error instanceof Error ? error.message : 'Unable to add Codex project.')
+    } finally {
+      setAddingCodexProjectPath('')
     }
   }
 
@@ -807,6 +862,7 @@ function App() {
       })
       setAppError('')
       await loadQueue()
+      await loadCodexProjects()
       await refreshSyncStatus()
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Unable to update project archive state.')
@@ -1195,14 +1251,58 @@ function App() {
                   {isSwitchingIssueData ? 'Switching...' : 'Use folder'}
                 </button>
               </form>
-              <button
-                className="codex-projects-button"
-                disabled
-                type="button"
-                title="Codex project discovery needs a stable local Codex project source"
-              >
-                Import Codex projects
-              </button>
+              <section className="codex-projects-panel" aria-label="Codex projects">
+                <div className="codex-projects-header">
+                  <p className="section-label">Codex Projects</p>
+                  <button
+                    disabled={isLoadingCodexProjects}
+                    onClick={loadCodexProjects}
+                    type="button"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="codex-project-list">
+                  {codexProjects.map((project) => (
+                    <div
+                      className={`codex-project-row ${project.tracked ? 'tracked' : ''} ${
+                        project.exists ? '' : 'missing'
+                      }`}
+                      key={project.path}
+                    >
+                      <div>
+                        <strong>{project.name}</strong>
+                        <code>{project.path}</code>
+                        <span>
+                          {project.tracked
+                            ? 'Already added'
+                            : project.exists
+                              ? project.branch
+                              : 'Folder missing'}
+                        </span>
+                      </div>
+                      <button
+                        disabled={
+                          project.tracked ||
+                          !project.exists ||
+                          addingCodexProjectPath === project.path
+                        }
+                        onClick={() => addCodexProject(project)}
+                        type="button"
+                      >
+                        {project.tracked
+                          ? 'Added'
+                          : addingCodexProjectPath === project.path
+                            ? 'Adding'
+                            : 'Add'}
+                      </button>
+                    </div>
+                  ))}
+                  {codexProjects.length === 0 ? (
+                    <p className="codex-project-empty">No Codex projects found.</p>
+                  ) : null}
+                </div>
+              </section>
             </div>
           ) : null}
         </div>
