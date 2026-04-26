@@ -2250,6 +2250,7 @@ function App() {
         <span>v{appVersion}</span>
         <strong>{releaseChannel}</strong>
         <span>Public project</span>
+        <span>Copyright Jonathan Burrows - Anything I.T.</span>
       </footer>
     </main>
   )

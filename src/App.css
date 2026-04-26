@@ -201,6 +201,8 @@
 
 .brand-title {
   color: var(--companion-purple);
+  font-size: clamp(13px, 0.9vw, 16px);
+  line-height: 1.1;
 }
 
 .sync-panel > .section-label,
@@ -1670,6 +1672,7 @@ code {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   min-height: 28px;
   padding: 0 16px;
