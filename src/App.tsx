@@ -85,6 +85,7 @@ type SetupState = {
 declare global {
   interface Window {
     codexCompanion?: {
+      apiBaseUrl?: string
       chooseFolder?: (options?: { buttonLabel?: string; title?: string }) => Promise<string>
       chooseIssueFolder: () => Promise<string>
     }
@@ -120,7 +121,9 @@ const decisionGlyphs: Record<IssueDecision, string> = {
   ignored: '×',
 }
 
-const apiBaseUrl = globalThis.location?.protocol === 'file:' ? 'http://localhost:8787' : ''
+const apiBaseUrl =
+  window.codexCompanion?.apiBaseUrl ??
+  (globalThis.location?.protocol === 'file:' ? 'http://localhost:8787' : '')
 
 async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -1165,8 +1168,11 @@ function App() {
       <main className="setup-shell">
         <section className="setup-panel" aria-label="Codex Companion setup">
           <div className="setup-heading">
-            <img className="brand-logo" src="/codex-companion-logo.png" alt="Codex Companion" />
-            <h1>Connect issue data</h1>
+            <img className="brand-mark" src="/codex-companion-icon.png" alt="" aria-hidden="true" />
+            <div>
+              <p className="eyebrow">Codex Companion</p>
+              <h1>Connect issue data</h1>
+            </div>
           </div>
 
           <div className="setup-summary">
@@ -1257,7 +1263,10 @@ function App() {
     <main className="companion-shell">
       <aside className="project-sidebar" aria-label="Projects">
         <div className="brand-block">
-          <img className="brand-logo" src="/codex-companion-logo.png" alt="Codex Companion" />
+          <img className="brand-mark" src="/codex-companion-icon.png" alt="" aria-hidden="true" />
+          <div>
+            <p className="eyebrow brand-title">Codex Companion</p>
+          </div>
         </div>
 
         <div className="sidebar-section">

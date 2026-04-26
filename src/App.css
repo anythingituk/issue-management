@@ -149,16 +149,6 @@
   box-shadow: 0 0 0 1px rgba(46, 234, 242, 0.24);
 }
 
-.brand-logo {
-  display: block;
-  width: min(170px, 100%);
-  height: auto;
-}
-
-.setup-heading .brand-logo {
-  width: min(210px, 52vw);
-}
-
 .eyebrow,
 .section-label {
   margin: 0;
