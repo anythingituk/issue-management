@@ -27,6 +27,22 @@ Run the API and app commands in separate terminals during development.
 npm run build
 ```
 
+## Desktop App
+
+Electron groundwork is included. The desktop app starts the local API internally and opens the built React UI in an app window.
+
+```bash
+npm run desktop
+```
+
+Windows packaging:
+
+```bash
+npm run dist:win
+```
+
+The current packaged build includes the issue data files from `issues/`. A later first-run setup should let installed users choose or clone their own Git-backed issue data folder.
+
 ## Codex Intake CLI
 
 The CLI writes to the same JSON files as the app.

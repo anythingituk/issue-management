@@ -56,8 +56,10 @@ const categoryLabels: Record<IssueCategory, string> = {
   question: 'Question',
 }
 
+const apiBaseUrl = globalThis.location?.protocol === 'file:' ? 'http://localhost:8787' : ''
+
 async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',

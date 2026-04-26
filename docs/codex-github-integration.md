@@ -100,6 +100,16 @@ git push
 
 Conflict handling should prefer preserving both edits. If two machines add different issues, both should remain. If two machines edit the same issue, the app should show a conflict review state rather than silently choosing a winner.
 
+## Desktop Packaging
+
+Electron groundwork is present:
+
+- `electron/main.mjs` starts the local API internally.
+- `npm run desktop` builds the web UI and opens it in an Electron window.
+- `npm run dist:win` creates Windows targets through `electron-builder`.
+
+Next desktop step: add first-run setup so installed users can choose or clone their Git-backed issue data folder instead of relying on the bundled `issues/` directory.
+
 ## AGENTS.md Convention
 
 Each Codex-managed project can include this instruction:

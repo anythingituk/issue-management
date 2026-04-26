@@ -3,10 +3,10 @@ import { execFile } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const port = Number(process.env.ISSUE_API_PORT ?? 8787)
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const rootDir = path.resolve(process.env.ISSUE_ROOT_DIR ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const issuesDir = path.join(rootDir, 'issues')
 const projectsPath = path.join(issuesDir, 'projects.json')
 const execFileAsync = promisify(execFile)
@@ -538,11 +538,22 @@ async function route(request, response) {
   sendError(response, 404, 'Not found.')
 }
 
-createServer((request, response) => {
-  route(request, response).catch((error) => {
-    console.error(error)
-    sendError(response, 500, 'Unexpected server error.')
+export function startIssueApiServer(options = {}) {
+  const serverPort = Number(options.port ?? port)
+  const server = createServer((request, response) => {
+    route(request, response).catch((error) => {
+      console.error(error)
+      sendError(response, 500, 'Unexpected server error.')
+    })
   })
-}).listen(port, () => {
-  console.log(`Issue API listening on http://localhost:${port}`)
-})
+
+  server.listen(serverPort, () => {
+    console.log(`Issue API listening on http://localhost:${serverPort}`)
+  })
+
+  return server
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  startIssueApiServer()
+}
