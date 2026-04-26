@@ -104,6 +104,11 @@ type SyncEvent = {
   title: string
 }
 
+type AiState = {
+  connected: boolean
+  model?: string
+}
+
 type SetupState = {
   configured: boolean
   dataDir: string
@@ -245,6 +250,10 @@ function App() {
   const [gitRemoteUrl, setGitRemoteUrl] = useState('')
   const [isConnectingGit, setIsConnectingGit] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [aiState, setAiState] = useState<AiState>({ connected: false })
+  const [openAiApiKey, setOpenAiApiKey] = useState('')
+  const [isConnectingAi, setIsConnectingAi] = useState(false)
+  const [isSuggestingTitle, setIsSuggestingTitle] = useState(false)
   const [projectSidebarWidth, setProjectSidebarWidth] = useState(() =>
     readStoredWidth(
       'codex-companion-project-sidebar-width',
@@ -399,6 +408,11 @@ function App() {
     }
   }
 
+  async function loadAiStatus() {
+    const payload = await apiJson<AiState>('/api/ai/status')
+    setAiState(payload)
+  }
+
   useEffect(() => {
     let ignore = false
     setCanChooseFolder(Boolean(window.codexCompanion?.chooseFolder || window.codexCompanion?.chooseIssueFolder))
@@ -418,6 +432,7 @@ function App() {
           await loadProjectList()
           await loadQueue()
           await loadCodexProjects()
+          await loadAiStatus()
         } else {
           setProjects([])
           setIssues([])
@@ -425,6 +440,7 @@ function App() {
           setCodexProjects([])
           setSelectedProjectId('')
           setSelectedIssueId('')
+          setAiState({ connected: false })
         }
       } catch (error) {
         if (!ignore) {
@@ -1320,6 +1336,76 @@ function App() {
     }
   }
 
+  async function connectOpenAi(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const apiKey = openAiApiKey.trim()
+    if (!apiKey) {
+      return
+    }
+
+    setIsConnectingAi(true)
+    try {
+      const payload = await apiJson<AiState>('/api/ai/connect', {
+        body: JSON.stringify({ apiKey }),
+        method: 'POST',
+      })
+      setAiState(payload)
+      setOpenAiApiKey('')
+      showToast({
+        message: 'OpenAI is connected for local AI assistance.',
+        title: 'AI Assistant connected',
+        tone: 'success',
+      })
+    } catch (error) {
+      showToast({
+        message: error instanceof Error ? error.message : 'Unable to connect OpenAI.',
+        title: 'AI connection failed',
+        tone: 'warning',
+      })
+    } finally {
+      setIsConnectingAi(false)
+    }
+  }
+
+  async function suggestIssueTitle() {
+    const description = newIssueDetail.trim()
+
+    if (!description) {
+      showToast({
+        message: 'Enter a description first so AI has something to summarise.',
+        title: 'Description needed',
+        tone: 'warning',
+      })
+      return
+    }
+
+    setIsSuggestingTitle(true)
+    try {
+      const payload = await apiJson<{ title: string }>('/api/ai/suggest-title', {
+        body: JSON.stringify({
+          category: newIssueCategory,
+          description,
+        }),
+        method: 'POST',
+      })
+      setNewIssueTitle(payload.title)
+      showToast({
+        message: 'Suggested a concise title from the description.',
+        title: 'Title suggested',
+        tone: 'success',
+      })
+    } catch (error) {
+      showToast({
+        message: error instanceof Error ? error.message : 'Unable to suggest a title.',
+        title: 'AI suggestion failed',
+        tone: 'warning',
+      })
+    } finally {
+      setIsSuggestingTitle(false)
+    }
+  }
+
   function renderDecisionControls(issue: Issue) {
     const currentDecision = issue.decision ?? 'waiting'
 
@@ -1693,6 +1779,42 @@ function App() {
             </div>
           ) : null}
         </div>
+
+        <section className={`ai-panel ${aiState.connected ? 'connected' : ''}`} aria-label="ChatGPT assistant">
+          <div className="ai-panel-header">
+            <p className="section-label">ChatGPT</p>
+            {aiState.connected ? <span>Connected</span> : null}
+          </div>
+          {aiState.connected ? (
+            <div className="ai-connected">
+              <p>
+                ChatGPT can help shape issue text from the active project form.
+                {aiState.model ? <small>{aiState.model}</small> : null}
+              </p>
+              <button
+                disabled={!selectedProject || !newIssueDetail.trim() || isSuggestingTitle}
+                onClick={suggestIssueTitle}
+                type="button"
+              >
+                {isSuggestingTitle ? 'Suggesting title' : 'Suggest title from description'}
+              </button>
+            </div>
+          ) : (
+            <form className="ai-connect-form" onSubmit={connectOpenAi}>
+              <p>Connect OpenAI to enable title suggestions and later writing assistance.</p>
+              <input
+                autoComplete="off"
+                onChange={(event) => setOpenAiApiKey(event.target.value)}
+                placeholder="OpenAI API key"
+                type="password"
+                value={openAiApiKey}
+              />
+              <button disabled={isConnectingAi || !openAiApiKey.trim()} type="submit">
+                {isConnectingAi ? 'Connecting' : 'Connect ChatGPT'}
+              </button>
+            </form>
+          )}
+        </section>
 
         <div className={`sync-panel ${syncState.tone}`}>
           <p className="section-label">GitHub Sync</p>

@@ -206,6 +206,8 @@
 }
 
 .sync-panel > .section-label,
+.ai-panel > .section-label,
+.ai-panel .section-label,
 .projects-label,
 .sync-history-card h3,
 .codex-projects-panel .section-label {
@@ -224,6 +226,7 @@
 .sidebar-section,
 .project-list,
 .data-store-panel,
+.ai-panel,
 .sync-panel {
   display: flex;
   flex-direction: column;
@@ -561,6 +564,85 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
+}
+
+.ai-panel {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.ai-panel.connected {
+  border-color: rgba(46, 234, 242, 0.28);
+}
+
+.ai-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ai-panel-header span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(46, 234, 242, 0.1);
+  color: var(--companion-cyan);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ai-connected,
+.ai-connect-form {
+  display: grid;
+  gap: 8px;
+}
+
+.ai-connected p,
+.ai-connect-form p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ai-connected small {
+  overflow: hidden;
+  color: var(--text-faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-connect-form input {
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 12px;
+}
+
+.ai-connected button,
+.ai-connect-form button {
+  min-height: 32px;
+  border: 1px solid rgba(46, 234, 242, 0.4);
+  border-radius: 7px;
+  background: rgba(46, 234, 242, 0.08);
+  color: var(--companion-cyan);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.ai-connected button:disabled,
+.ai-connect-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .sync-state,

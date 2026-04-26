@@ -90,30 +90,39 @@ function hasProjectsFile(rootDir = getRootDir()) {
 }
 
 function loadSetupConfig() {
+  const config = readAppConfig()
+  if (config.issueRootDir) {
+    configuredRootDir = path.resolve(String(config.issueRootDir))
+    process.env.ISSUE_ROOT_DIR = configuredRootDir
+  }
+}
+
+function readAppConfig() {
   const configPath = getConfigPath()
 
   if (!existsSync(configPath)) {
-    return
+    return {}
   }
 
   try {
-    const config = JSON.parse(readFileSync(configPath, 'utf8'))
-    if (config.issueRootDir) {
-      configuredRootDir = path.resolve(String(config.issueRootDir))
-      process.env.ISSUE_ROOT_DIR = configuredRootDir
-    }
+    return JSON.parse(readFileSync(configPath, 'utf8'))
   } catch (error) {
     console.warn(`Unable to read Codex Companion config at ${configPath}:`, error)
+    return {}
   }
+}
+
+function writeAppConfig(config) {
+  mkdirSync(getDataDir(), { recursive: true })
+  writeFileSync(getConfigPath(), `${JSON.stringify(config, null, 2)}\n`)
 }
 
 function saveSetupConfig(rootDir) {
   const nextRootDir = path.resolve(rootDir)
-  mkdirSync(getDataDir(), { recursive: true })
-  writeFileSync(
-    getConfigPath(),
-    `${JSON.stringify({ issueRootDir: nextRootDir }, null, 2)}\n`,
-  )
+  writeAppConfig({
+    ...readAppConfig(),
+    issueRootDir: nextRootDir,
+  })
   configuredRootDir = nextRootDir
   process.env.ISSUE_ROOT_DIR = nextRootDir
 }
@@ -946,6 +955,120 @@ async function patchIssue(response, request, issueId) {
   sendError(response, 404, 'Issue not found.')
 }
 
+function aiStatus(response) {
+  const config = readAppConfig()
+  sendJson(response, 200, {
+    connected: Boolean(config.openaiApiKey || process.env.OPENAI_API_KEY),
+    model: config.openaiModel ?? process.env.OPENAI_MODEL ?? 'gpt-5-mini',
+  })
+}
+
+async function aiConnect(response, request) {
+  const body = await readRequestJson(request)
+  const apiKey = String(body.apiKey ?? '').trim()
+  const model = String(body.model ?? process.env.OPENAI_MODEL ?? 'gpt-5-mini').trim()
+
+  if (!apiKey) {
+    sendError(response, 400, 'OpenAI API key is required.')
+    return
+  }
+
+  writeAppConfig({
+    ...readAppConfig(),
+    openaiApiKey: apiKey,
+    openaiModel: model || 'gpt-5-mini',
+  })
+
+  sendJson(response, 200, {
+    connected: true,
+    model: model || 'gpt-5-mini',
+  })
+}
+
+function extractResponseText(payload) {
+  if (typeof payload.output_text === 'string') {
+    return payload.output_text.trim()
+  }
+
+  const output = Array.isArray(payload.output) ? payload.output : []
+  return output
+    .flatMap((item) => (Array.isArray(item.content) ? item.content : []))
+    .map((content) => content.text ?? '')
+    .join('')
+    .trim()
+}
+
+async function aiSuggestTitle(response, request) {
+  const config = readAppConfig()
+  const apiKey = config.openaiApiKey || process.env.OPENAI_API_KEY
+
+  if (!apiKey) {
+    sendError(response, 401, 'Connect OpenAI before using AI suggestions.')
+    return
+  }
+
+  const body = await readRequestJson(request)
+  const description = String(body.description ?? '').trim()
+  const category = String(body.category ?? '').trim()
+
+  if (!description) {
+    sendError(response, 400, 'Description is required to suggest a title.')
+    return
+  }
+
+  const model = config.openaiModel ?? process.env.OPENAI_MODEL ?? 'gpt-5-mini'
+  const openAiResponse = await fetch('https://api.openai.com/v1/responses', {
+    body: JSON.stringify({
+      input: [
+        {
+          content: [
+            {
+              text: [
+                'Create a short issue title for this Codex Companion issue.',
+                'Return only the title.',
+                'Use sentence case unless a product or acronym requires capitals.',
+                'Keep it under 80 characters.',
+                category ? `Category: ${category}` : '',
+                `Description: ${description}`,
+              ].filter(Boolean).join('\n'),
+              type: 'input_text',
+            },
+          ],
+          role: 'user',
+        },
+      ],
+      model,
+      max_output_tokens: 60,
+      store: false,
+    }),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  if (!openAiResponse.ok) {
+    const errorPayload = await openAiResponse.json().catch(() => ({}))
+    sendError(
+      response,
+      openAiResponse.status,
+      errorPayload.error?.message ?? 'OpenAI title suggestion failed.',
+    )
+    return
+  }
+
+  const payload = await openAiResponse.json()
+  const title = extractResponseText(payload).replace(/^["']|["']$/g, '').trim()
+
+  if (!title) {
+    sendError(response, 502, 'OpenAI did not return a title.')
+    return
+  }
+
+  sendJson(response, 200, { title })
+}
+
 async function route(request, response) {
   const url = new URL(request.url ?? '/', `http://${request.headers.host}`)
 
@@ -986,6 +1109,21 @@ async function route(request, response) {
 
   if (request.method === 'GET' && url.pathname === '/api/sync/history') {
     await syncHistory(response)
+    return
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/ai/status') {
+    aiStatus(response)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/ai/connect') {
+    await aiConnect(response, request)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/ai/suggest-title') {
+    await aiSuggestTitle(response, request)
     return
   }
 
