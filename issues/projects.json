@@ -6,21 +6,5 @@
     "branch": "main",
     "issueFile": "issue-management.json",
     "archived": false
-  },
-  {
-    "id": "client-portal",
-    "name": "Client Portal",
-    "path": "/mnt/c/dev/client-portal",
-    "branch": "feature/accounts",
-    "issueFile": "client-portal.json",
-    "archived": false
-  },
-  {
-    "id": "website",
-    "name": "Marketing Website",
-    "path": "/mnt/c/dev/marketing-site",
-    "branch": "main",
-    "issueFile": "website.json",
-    "archived": false
   }
 ]

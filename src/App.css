@@ -389,6 +389,54 @@
   white-space: pre-wrap;
 }
 
+.ssh-passphrase-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--blue-soft);
+  border-radius: 8px;
+  background: rgba(77, 141, 255, 0.08);
+}
+
+.ssh-passphrase-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.ssh-passphrase-form span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ssh-passphrase-form input,
+.ssh-passphrase-form button {
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
+}
+
+.ssh-passphrase-form input {
+  padding: 0 9px;
+  background: var(--panel);
+  color: var(--text-strong);
+}
+
+.ssh-passphrase-form button {
+  background: var(--text-strong);
+  color: var(--surface);
+  cursor: pointer;
+}
+
+.ssh-passphrase-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .sync-time {
   margin: -4px 0 0;
   color: var(--text-muted);

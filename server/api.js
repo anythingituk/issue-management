@@ -1,7 +1,8 @@
 import { createServer } from 'node:http'
 import { execFile } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -175,11 +176,43 @@ function sendError(response, statusCode, message) {
   sendJson(response, statusCode, { error: message })
 }
 
-async function runGit(args) {
+async function createSshAskpassEnv(sshPassphrase) {
+  const passphrase = String(sshPassphrase ?? '')
+  if (!passphrase) {
+    return { cleanup: async () => {}, env: process.env }
+  }
+
+  const askpassDir = await mkdtemp(path.join(tmpdir(), 'codex-companion-askpass-'))
+  const askpassPath = path.join(askpassDir, 'ssh-askpass.sh')
+  await writeFile(
+    askpassPath,
+    '#!/bin/sh\nprintf "%s\\n" "$CODEX_COMPANION_SSH_PASSPHRASE"\n',
+    'utf8',
+  )
+  await chmod(askpassPath, 0o700)
+
+  return {
+    cleanup: async () => {
+      await rm(askpassDir, { force: true, recursive: true })
+    },
+    env: {
+      ...process.env,
+      CODEX_COMPANION_SSH_PASSPHRASE: passphrase,
+      DISPLAY: process.env.DISPLAY || ':0',
+      GIT_TERMINAL_PROMPT: '0',
+      SSH_ASKPASS: askpassPath,
+      SSH_ASKPASS_REQUIRE: 'force',
+    },
+  }
+}
+
+async function runGit(args, options = {}) {
+  const askpass = await createSshAskpassEnv(options.sshPassphrase)
   try {
     const result = await execFileAsync('git', args, {
       cwd: getRootDir(),
-      timeout: 30000,
+      env: askpass.env,
+      timeout: options.timeout ?? 30000,
     })
 
     return {
@@ -192,6 +225,8 @@ async function runGit(args) {
       ok: false,
       output,
     }
+  } finally {
+    await askpass.cleanup()
   }
 }
 
@@ -405,8 +440,10 @@ async function syncHistory(response) {
   })
 }
 
-async function syncPull(response) {
-  const result = await runGit(['pull', '--rebase'])
+async function syncPull(response, request) {
+  const body = await readRequestJson(request)
+  const gitOptions = { sshPassphrase: body.sshPassphrase }
+  const result = await runGit(['pull', '--rebase'], gitOptions)
 
   if (!result.ok) {
     sendError(response, 409, result.output || 'Git pull failed.')
@@ -438,7 +475,9 @@ async function commitIssueChanges() {
   return { committed: true, ok: true, output: commit.output }
 }
 
-async function syncPush(response) {
+async function syncPush(response, request) {
+  const body = await readRequestJson(request)
+  const gitOptions = { sshPassphrase: body.sshPassphrase }
   const commit = await commitIssueChanges()
   if (!commit.ok) {
     sendError(response, 409, commit.output)
@@ -449,6 +488,7 @@ async function syncPush(response) {
   const branch = await runGit(['branch', '--show-current'])
   const push = await runGit(
     upstream.ok ? ['push'] : ['push', '-u', 'origin', branch.ok && branch.output ? branch.output : 'main'],
+    gitOptions,
   )
   if (!push.ok) {
     sendError(response, 409, push.output || 'Git push failed.')
@@ -462,7 +502,9 @@ async function syncPush(response) {
   })
 }
 
-async function syncAll(response) {
+async function syncAll(response, request) {
+  const body = await readRequestJson(request)
+  const gitOptions = { sshPassphrase: body.sshPassphrase }
   const commit = await commitIssueChanges()
   if (!commit.ok) {
     sendError(response, 409, commit.output)
@@ -470,7 +512,7 @@ async function syncAll(response) {
   }
 
   const upstream = await runGit(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
-  const pull = upstream.ok ? await runGit(['pull', '--rebase']) : { ok: true, output: '' }
+  const pull = upstream.ok ? await runGit(['pull', '--rebase'], gitOptions) : { ok: true, output: '' }
   if (!pull.ok) {
     sendError(response, 409, pull.output || 'Git pull failed.')
     return
@@ -479,6 +521,7 @@ async function syncAll(response) {
   const branch = await runGit(['branch', '--show-current'])
   const push = await runGit(
     upstream.ok ? ['push'] : ['push', '-u', 'origin', branch.ok && branch.output ? branch.output : 'main'],
+    gitOptions,
   )
   if (!push.ok) {
     sendError(response, 409, push.output || 'Git push failed.')
@@ -886,7 +929,7 @@ async function route(request, response) {
   }
 
   if (request.method === 'POST' && url.pathname === '/api/sync/pull') {
-    await syncPull(response)
+    await syncPull(response, request)
     return
   }
 
@@ -896,12 +939,12 @@ async function route(request, response) {
   }
 
   if (request.method === 'POST' && url.pathname === '/api/sync/push') {
-    await syncPush(response)
+    await syncPush(response, request)
     return
   }
 
   if (request.method === 'POST' && url.pathname === '/api/sync/all') {
-    await syncAll(response)
+    await syncAll(response, request)
     return
   }
 

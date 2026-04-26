@@ -8,6 +8,7 @@ type IssueCategory = 'bug' | 'snag' | 'feature' | 'refactor' | 'docs' | 'testing
 type StatusFilter = IssueStatus | 'all'
 type CategoryFilter = IssueCategory | 'all'
 type SourceFilter = IssueSource | 'all'
+type SyncAction = 'pull' | 'push' | 'all'
 
 type Project = {
   id: string
@@ -172,6 +173,8 @@ function App() {
     message: 'Checking GitHub sync...',
   })
   const [syncHistory, setSyncHistory] = useState<SyncEvent[]>([])
+  const [sshPassphrase, setSshPassphrase] = useState('')
+  const [pendingSshAction, setPendingSshAction] = useState<SyncAction | null>(null)
 
   async function loadProjectList() {
     const payload = await apiJson<{ projects: Project[] }>('/api/projects')
@@ -831,8 +834,13 @@ function App() {
     })
   }
 
-  async function runSync(action: 'pull' | 'push' | 'all') {
+  function needsSshPassphrase(message: string) {
+    return /ssh-askpass|permission denied \(publickey\)|could not read from remote repository/i.test(message)
+  }
+
+  async function runSync(action: SyncAction) {
     const label = action === 'pull' ? 'Pull' : action === 'push' ? 'Push' : 'Sync'
+    const passphrase = sshPassphrase.trim()
     setSyncState({
       tone: 'working',
       message: `${label} in progress...`,
@@ -840,9 +848,12 @@ function App() {
 
     try {
       const payload = await apiJson<{ completedAt?: string; message: string; output?: string }>(`/api/sync/${action}`, {
+        body: JSON.stringify(passphrase ? { sshPassphrase: passphrase } : {}),
         method: 'POST',
       })
       await refreshSelectedProject()
+      setPendingSshAction(null)
+      setSshPassphrase('')
       setSyncState({
         tone: 'success',
         message: payload.message,
@@ -851,9 +862,11 @@ function App() {
       })
       await loadSyncHistory()
     } catch (error) {
+      const message = error instanceof Error ? error.message : `${label} failed.`
+      setPendingSshAction(needsSshPassphrase(message) ? action : null)
       setSyncState({
         tone: 'error',
-        message: error instanceof Error ? error.message : `${label} failed.`,
+        message,
         timestamp: new Date().toISOString(),
       })
     }
@@ -1172,6 +1185,29 @@ function App() {
             </button>
           </form>
           {syncState.output ? <pre className="sync-output">{syncState.output}</pre> : null}
+          {pendingSshAction ? (
+            <form
+              className="ssh-passphrase-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                runSync(pendingSshAction)
+              }}
+            >
+              <label>
+                <span>SSH key passphrase</span>
+                <input
+                  autoComplete="current-password"
+                  onChange={(event) => setSshPassphrase(event.target.value)}
+                  placeholder="Enter once to retry"
+                  type="password"
+                  value={sshPassphrase}
+                />
+              </label>
+              <button disabled={syncState.tone === 'working' || !sshPassphrase.trim()} type="submit">
+                Retry {pendingSshAction === 'all' ? 'Sync' : pendingSshAction === 'pull' ? 'Pull' : 'Push'}
+              </button>
+            </form>
+          ) : null}
           <div className="sync-actions" aria-label="GitHub sync actions">
             <button
               className="primary-sync"
