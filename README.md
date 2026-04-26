@@ -45,6 +45,8 @@ npm run dist:win
 
 `npm run dist:dir` creates an unpacked app in `release/` for a fast packaging sanity check. `npm run dist:win` creates the Windows installer and portable build. The installer is named Codex Companion, creates Start Menu and desktop shortcuts, and preserves `%APPDATA%/Codex Companion` on uninstall so local issue data is not deleted accidentally.
 
+GitHub Actions also has a `Windows Package` workflow. It runs on pushes and pull requests to `main`, can be launched manually, and uploads the Windows installer/portable artifacts from `release/`.
+
 The desktop app uses `Codex Companion` as its installed app name. On Windows, the default data store is `%APPDATA%/Codex Companion`.
 
 On first launch, the app shows a setup screen with three choices:
