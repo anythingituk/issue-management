@@ -115,6 +115,7 @@
   grid-template-columns:
     var(--project-sidebar-width, 260px) 6px minmax(560px, 1fr) 6px
     var(--detail-panel-width, 340px);
+  grid-template-rows: minmax(0, 1fr) auto;
   min-height: 100vh;
   background:
     radial-gradient(circle at 46% -20%, rgba(64, 122, 200, 0.18), transparent 34%),
@@ -132,6 +133,7 @@
   display: flex;
   flex-direction: column;
   gap: 22px;
+  min-height: 0;
   padding: 18px 16px;
   border-right: 1px solid var(--border);
 }
@@ -231,6 +233,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
+  min-height: 0;
 }
 
 .sidebar-section-header,
@@ -314,6 +317,13 @@
   border-color: var(--focus);
   color: var(--text-strong);
   box-shadow: 0 0 0 3px var(--focus-soft);
+}
+
+.project-list {
+  max-height: clamp(150px, 32vh, 420px);
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-gutter: stable;
 }
 
 .project-name {
@@ -1656,6 +1666,28 @@ code {
   cursor: pointer;
 }
 
+.app-status-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+  padding: 0 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(8, 13, 18, 0.92);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.app-status-bar strong {
+  padding: 2px 7px;
+  border: 1px solid rgba(46, 234, 242, 0.38);
+  border-radius: 999px;
+  color: var(--companion-cyan);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
 @keyframes toast-slide-in {
   from {
     opacity: 0;
@@ -1679,8 +1711,13 @@ code {
 
   .detail-panel {
     grid-column: 1 / -1;
+    grid-row: auto;
     border-top: 1px solid var(--border);
     border-left: 0;
+  }
+
+  .app-status-bar {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1697,6 +1734,10 @@ code {
   .project-sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  .project-list {
+    max-height: 260px;
   }
 
   .pane-header,

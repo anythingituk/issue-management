@@ -28,6 +28,8 @@ const detailPanelBounds = {
   max: 560,
   min: 300,
 }
+const appVersion = import.meta.env.VITE_APP_VERSION ?? '0.1.0'
+const releaseChannel = import.meta.env.VITE_RELEASE_CHANNEL ?? 'ALPHA'
 const minimumIssuePaneWidth = 560
 const resizeHandleWidth = 12
 
@@ -2243,6 +2245,12 @@ function App() {
           <span>{toast.message}</span>
         </div>
       ) : null}
+      <footer className="app-status-bar" aria-label="Application status">
+        <span>Codex Companion</span>
+        <span>v{appVersion}</span>
+        <strong>{releaseChannel}</strong>
+        <span>Public project</span>
+      </footer>
     </main>
   )
 }
