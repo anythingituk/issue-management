@@ -85,7 +85,7 @@ Implemented API endpoints:
 - `POST /api/sync/all`
 
 `POST /api/projects` appends to `issues/projects.json` and creates the matching empty project issue file.
-`PATCH /api/projects/:id` updates project name, path, and branch while preserving the id and issue file.
+`PATCH /api/projects/:id` updates project name, path, branch, and archived state while preserving the id and issue file.
 
 The push endpoint stages only `issues/`, commits with `Update issue list`, and then runs `git push`.
 

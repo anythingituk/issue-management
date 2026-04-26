@@ -16,6 +16,7 @@ type Project = {
   branch: string
   issueFile: string
   openCount: number
+  archived: boolean
 }
 
 type Issue = {
@@ -105,6 +106,7 @@ function App() {
   const [editProjectPath, setEditProjectPath] = useState('')
   const [editProjectBranch, setEditProjectBranch] = useState('')
   const [isSavingProject, setIsSavingProject] = useState(false)
+  const [showArchivedProjects, setShowArchivedProjects] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editFile, setEditFile] = useState('')
   const [editCategory, setEditCategory] = useState<IssueCategory>('snag')
@@ -196,6 +198,10 @@ function App() {
   }, [selectedProjectId])
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
+  const visibleProjects = useMemo(
+    () => projects.filter((project) => showArchivedProjects || !project.archived),
+    [projects, showArchivedProjects],
+  )
 
   useEffect(() => {
     if (!selectedProject) {
@@ -478,6 +484,41 @@ function App() {
     }
   }
 
+  async function setProjectArchived(project: Project, archived: boolean) {
+    setIsSavingProject(true)
+
+    try {
+      const payload = await apiJson<{ project: Project }>(
+        `/api/projects/${encodeURIComponent(project.id)}`,
+        {
+          body: JSON.stringify({ archived }),
+          method: 'PATCH',
+        },
+      )
+
+      setProjects((currentProjects) => {
+        const nextProjects = currentProjects.map((item) =>
+          item.id === project.id ? payload.project : item,
+        )
+        if (archived && selectedProjectId === project.id && !showArchivedProjects) {
+          const nextProject = nextProjects.find((item) => !item.archived)
+          setSelectedProjectId(nextProject?.id ?? '')
+          if (!nextProject) {
+            setIssues([])
+            setSelectedIssueId('')
+          }
+        }
+        return nextProjects
+      })
+      setAppError('')
+      await refreshSyncStatus()
+    } catch (error) {
+      setAppError(error instanceof Error ? error.message : 'Unable to update project archive state.')
+    } finally {
+      setIsSavingProject(false)
+    }
+  }
+
   async function refreshSelectedProject() {
     if (!selectedProjectId) {
       return
@@ -539,17 +580,29 @@ function App() {
 
         <div className="sidebar-section">
           <p className="section-label">Projects</p>
+          <label className="show-archived-toggle">
+            <input
+              checked={showArchivedProjects}
+              onChange={(event) => setShowArchivedProjects(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Show archived</span>
+          </label>
           <div className="project-list">
-            {projects.map((project) => (
+            {visibleProjects.map((project) => (
               <button
-                className={`project-button ${project.id === selectedProject?.id ? 'active' : ''}`}
+                className={`project-button ${project.id === selectedProject?.id ? 'active' : ''} ${
+                  project.archived ? 'archived' : ''
+                }`}
                 key={project.id}
                 onClick={() => setSelectedProjectId(project.id)}
                 type="button"
               >
                 <span className="project-name">{project.name}</span>
                 <span className="project-path">{project.path}</span>
-                <span className="project-count">{projectOpenCount(project)} open</span>
+                <span className="project-count">
+                  {project.archived ? 'Archived' : `${projectOpenCount(project)} open`}
+                </span>
               </button>
             ))}
           </div>
@@ -601,6 +654,14 @@ function App() {
                   Save
                 </button>
               </div>
+              <button
+                className="archive-project-button"
+                disabled={isSavingProject}
+                onClick={() => setProjectArchived(selectedProject, !selectedProject.archived)}
+                type="button"
+              >
+                {selectedProject.archived ? 'Restore project' : 'Archive project'}
+              </button>
             </form>
           ) : null}
         </div>

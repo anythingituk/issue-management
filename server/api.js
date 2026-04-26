@@ -246,6 +246,7 @@ async function getProjects(response) {
       const issues = await readProjectIssues(project)
       return {
         ...project,
+        archived: Boolean(project.archived),
         openCount: issues.filter((issue) => issue.status !== 'fixed').length,
       }
     }),
@@ -293,6 +294,7 @@ async function addProject(response, request) {
     path: projectPath,
     branch,
     issueFile: `${id}.json`,
+    archived: false,
   }
 
   await writeJson(projectsPath, [...projects, project])
@@ -322,6 +324,7 @@ async function patchProject(response, request, projectId) {
   const name = body.name === undefined ? currentProject.name : String(body.name).trim()
   const projectPath = body.path === undefined ? currentProject.path : String(body.path).trim()
   const branch = body.branch === undefined ? currentProject.branch : String(body.branch).trim() || 'main'
+  const archived = body.archived === undefined ? Boolean(currentProject.archived) : Boolean(body.archived)
 
   if (!name) {
     sendError(response, 400, 'Project name is required.')
@@ -348,6 +351,7 @@ async function patchProject(response, request, projectId) {
     name,
     path: projectPath,
     branch,
+    archived,
   }
   const nextProjects = [...projects]
   nextProjects[projectIndex] = project
