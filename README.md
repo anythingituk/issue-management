@@ -32,7 +32,7 @@ The CLI writes to the same JSON files as the app.
 
 ```bash
 node bin/issue-manager.js add \
-  --project /mnt/c/dev/IssueManagement \
+  --project /mnt/c/dev/issue-management \
   --title "Button text overflows on mobile" \
   --file src/App.css \
   --category bug \
@@ -40,7 +40,7 @@ node bin/issue-manager.js add \
 
 node bin/issue-manager.js status --id iss-001 --status fixed
 node bin/issue-manager.js activity --id iss-001 --message "Codex started inspecting the issue."
-node bin/issue-manager.js list --project /mnt/c/dev/IssueManagement
+node bin/issue-manager.js list --project /mnt/c/dev/issue-management
 ```
 
 Categories are `bug`, `snag`, `feature`, `refactor`, `docs`, `testing`, and `question`. User-created items default to `snag`, which signals that Codex should look for an appropriate opportunity to handle it without derailing the active task.

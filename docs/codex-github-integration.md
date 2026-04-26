@@ -40,7 +40,7 @@ Codex should be able to add or update an issue without opening the UI.
 
 ```bash
 npm run issue -- add \
-  --project /mnt/c/dev/IssueManagement \
+  --project /mnt/c/dev/issue-management \
   --title "Persist issues in Git-friendly files" \
   --file "issues/issue-management.json" \
   --category feature \

@@ -1,8 +1,8 @@
 [
   {
     "id": "issue-management",
-    "name": "IssueManagement",
-    "path": "/mnt/c/dev/IssueManagement",
+    "name": "issue-management",
+    "path": "/mnt/c/dev/issue-management",
     "branch": "main",
     "issueFile": "issue-management.json"
   },

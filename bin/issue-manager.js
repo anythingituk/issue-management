@@ -34,7 +34,7 @@ function usage() {
   issue-manager list [--project <id-or-path>]
 
 Examples:
-  issue-manager add --project /mnt/c/dev/IssueManagement --title "Button overflows on mobile" --file src/App.css --category bug --source Codex
+  issue-manager add --project /mnt/c/dev/issue-management --title "Button overflows on mobile" --file src/App.css --category bug --source Codex
   issue-manager status --id iss-001 --status fixed
   issue-manager activity --id iss-001 --message "Codex started inspecting src/App.css."`)
 }
