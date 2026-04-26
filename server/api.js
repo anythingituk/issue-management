@@ -327,6 +327,12 @@ async function patchIssue(response, request, issueId) {
       ? [`Status changed to ${statusLabels[nextStatus]}.`, ...activity]
       : activity
 
+    const nextTitle = body.title === undefined ? currentIssue.title : String(body.title).trim()
+    if (!nextTitle) {
+      sendError(response, 400, 'Issue title is required.')
+      return
+    }
+
     const nextIssue = {
       ...currentIssue,
       status: nextStatus,
@@ -334,7 +340,7 @@ async function patchIssue(response, request, issueId) {
         body.category === undefined || !categoryLabels[body.category]
           ? currentIssue.category
           : body.category,
-      title: body.title === undefined ? currentIssue.title : String(body.title).trim(),
+      title: nextTitle,
       file: body.file === undefined ? currentIssue.file : String(body.file).trim() || undefined,
       detail: body.detail === undefined ? currentIssue.detail : String(body.detail).trim(),
       activity: body.activity === undefined ? nextActivity : body.activity,

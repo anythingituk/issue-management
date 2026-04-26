@@ -94,6 +94,11 @@ function App() {
   const [newIssueTitle, setNewIssueTitle] = useState('')
   const [newIssueFile, setNewIssueFile] = useState('')
   const [newIssueCategory, setNewIssueCategory] = useState<IssueCategory>('snag')
+  const [editTitle, setEditTitle] = useState('')
+  const [editFile, setEditFile] = useState('')
+  const [editCategory, setEditCategory] = useState<IssueCategory>('snag')
+  const [editDetail, setEditDetail] = useState('')
+  const [isSavingIssue, setIsSavingIssue] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [appError, setAppError] = useState('')
@@ -201,6 +206,21 @@ function App() {
   const selectedIssue =
     filteredIssues.find((issue) => issue.id === selectedIssueId) ?? filteredIssues[0]
 
+  useEffect(() => {
+    if (!selectedIssue) {
+      setEditTitle('')
+      setEditFile('')
+      setEditCategory('snag')
+      setEditDetail('')
+      return
+    }
+
+    setEditTitle(selectedIssue.title)
+    setEditFile(selectedIssue.file ?? '')
+    setEditCategory(selectedIssue.category)
+    setEditDetail(selectedIssue.detail)
+  }, [selectedIssue])
+
   function projectOpenCount(project: Project) {
     if (project.id !== selectedProjectId) {
       return project.openCount
@@ -260,6 +280,57 @@ function App() {
     } catch (error) {
       setIssues(previousIssues)
       setAppError(error instanceof Error ? error.message : 'Unable to update issue.')
+    }
+  }
+
+  async function saveIssueDetails(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!selectedIssue) {
+      return
+    }
+
+    const title = editTitle.trim()
+    if (!title) {
+      setAppError('Issue title is required.')
+      return
+    }
+
+    const previousIssues = issues
+    const optimisticIssue = {
+      ...selectedIssue,
+      title,
+      file: editFile.trim() || undefined,
+      category: editCategory,
+      detail: editDetail.trim(),
+    }
+
+    setIsSavingIssue(true)
+    setIssues((currentIssues) =>
+      currentIssues.map((issue) => (issue.id === selectedIssue.id ? optimisticIssue : issue)),
+    )
+
+    try {
+      const payload = await apiJson<{ issue: Issue }>(`/api/issues/${encodeURIComponent(selectedIssue.id)}`, {
+        body: JSON.stringify({
+          title,
+          file: editFile.trim(),
+          category: editCategory,
+          detail: editDetail.trim(),
+        }),
+        method: 'PATCH',
+      })
+
+      setIssues((currentIssues) =>
+        currentIssues.map((issue) => (issue.id === selectedIssue.id ? payload.issue : issue)),
+      )
+      setAppError('')
+      await refreshSyncStatus()
+    } catch (error) {
+      setIssues(previousIssues)
+      setAppError(error instanceof Error ? error.message : 'Unable to save issue.')
+    } finally {
+      setIsSavingIssue(false)
     }
   }
 
@@ -505,28 +576,55 @@ function App() {
       <aside className="detail-panel" aria-label="Issue details">
         {selectedIssue && selectedProject ? (
           <>
-            <div className="detail-header">
-              <p className="eyebrow">{formatDate(selectedIssue.createdAt)}</p>
-              <h2>{selectedIssue.title}</h2>
-              <span className={`status-pill ${selectedIssue.status}`}>{statusLabels[selectedIssue.status]}</span>
-            </div>
+            <form className="detail-form" onSubmit={saveIssueDetails}>
+              <div className="detail-header">
+                <p className="eyebrow">{formatDate(selectedIssue.createdAt)}</p>
+                <label className="detail-field title-field">
+                  <span>Issue name</span>
+                  <input
+                    onChange={(event) => setEditTitle(event.target.value)}
+                    value={editTitle}
+                  />
+                </label>
+                <span className={`status-pill ${selectedIssue.status}`}>{statusLabels[selectedIssue.status]}</span>
+              </div>
 
-            <div className="detail-section">
-              <p className="section-label">Location</p>
-              <code>{selectedIssue.file ?? selectedProject.path}</code>
-            </div>
+              <label className="detail-field">
+                <span>Location</span>
+                <input
+                  onChange={(event) => setEditFile(event.target.value)}
+                  placeholder={selectedProject.path}
+                  value={editFile}
+                />
+              </label>
 
-            <div className="detail-section">
-              <p className="section-label">Category</p>
-              <span className={`category-pill detail ${selectedIssue.category}`}>
-                {categoryLabels[selectedIssue.category]}
-              </span>
-            </div>
+              <label className="detail-field">
+                <span>Category</span>
+                <select
+                  onChange={(event) => setEditCategory(event.target.value as IssueCategory)}
+                  value={editCategory}
+                >
+                  {(Object.keys(categoryLabels) as IssueCategory[]).map((category) => (
+                    <option key={category} value={category}>
+                      {categoryLabels[category]}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <div className="detail-section">
-              <p className="section-label">Notes</p>
-              <p>{selectedIssue.detail}</p>
-            </div>
+              <label className="detail-field">
+                <span>Notes</span>
+                <textarea
+                  onChange={(event) => setEditDetail(event.target.value)}
+                  rows={5}
+                  value={editDetail}
+                />
+              </label>
+
+              <button className="save-issue-button" disabled={isSavingIssue} type="submit">
+                {isSavingIssue ? 'Saving...' : 'Save changes'}
+              </button>
+            </form>
 
             <div className="status-controls" aria-label="Set issue status">
               {(Object.keys(statusLabels) as IssueStatus[]).map((status) => (

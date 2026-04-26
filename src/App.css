@@ -476,6 +476,79 @@ button {
   gap: 10px;
 }
 
+.detail-form {
+  display: grid;
+  gap: 14px;
+}
+
+.detail-field {
+  display: grid;
+  gap: 7px;
+}
+
+.detail-field span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.detail-field input,
+.detail-field select,
+.detail-field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text-strong);
+  font: inherit;
+}
+
+.detail-field input,
+.detail-field select {
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.detail-field textarea {
+  min-height: 118px;
+  padding: 9px 10px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.title-field input {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-strong);
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.15;
+  padding: 0;
+}
+
+.title-field input:focus-visible {
+  border-color: var(--focus);
+  background: var(--control);
+  padding: 0 8px;
+}
+
+.save-issue-button {
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--text-strong);
+  color: var(--surface);
+  cursor: pointer;
+}
+
+.save-issue-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .status-pill {
   width: max-content;
   padding: 4px 9px;
