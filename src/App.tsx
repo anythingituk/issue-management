@@ -2250,6 +2250,9 @@ function App() {
         <span>v{appVersion}</span>
         <strong>{releaseChannel}</strong>
         <span>Public project</span>
+        <a href="https://github.com/anythingituk/issue-management" rel="noreferrer" target="_blank">
+          GitHub repo
+        </a>
         <span>© 2026 Jonathan Burrows - Anything I.T.</span>
       </footer>
     </main>

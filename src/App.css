@@ -1691,6 +1691,17 @@ code {
   letter-spacing: 0;
 }
 
+.app-status-bar a {
+  color: var(--companion-cyan);
+  text-decoration: none;
+}
+
+.app-status-bar a:hover,
+.app-status-bar a:focus-visible {
+  color: #0073fb;
+  text-decoration: underline;
+}
+
 @keyframes toast-slide-in {
   from {
     opacity: 0;
