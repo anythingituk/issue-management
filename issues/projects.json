@@ -6,5 +6,13 @@
     "branch": "main",
     "issueFile": "issue-management.json",
     "archived": false
+  },
+  {
+    "id": "posidacious-v2",
+    "name": "posidacious-v2",
+    "path": "/mnt/c/dev/posidacious-v2",
+    "branch": "codex/logic-corrections",
+    "issueFile": "posidacious-v2.json",
+    "archived": false
   }
 ]
