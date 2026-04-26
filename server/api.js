@@ -6,9 +6,7 @@ import { promisify } from 'node:util'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const port = Number(process.env.ISSUE_API_PORT ?? 8787)
-const rootDir = path.resolve(process.env.ISSUE_ROOT_DIR ?? path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
-const issuesDir = path.join(rootDir, 'issues')
-const projectsPath = path.join(issuesDir, 'projects.json')
+const defaultRootDir = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const execFileAsync = promisify(execFile)
 
 const statusLabels = {
@@ -36,8 +34,20 @@ async function writeJson(filePath, data) {
   await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`)
 }
 
+function getRootDir() {
+  return path.resolve(process.env.ISSUE_ROOT_DIR ?? defaultRootDir)
+}
+
+function getIssuesDir() {
+  return path.join(getRootDir(), 'issues')
+}
+
+function getProjectsPath() {
+  return path.join(getIssuesDir(), 'projects.json')
+}
+
 async function readProjects() {
-  return readJson(projectsPath)
+  return readJson(getProjectsPath())
 }
 
 function slugifyProjectId(value) {
@@ -49,7 +59,7 @@ function slugifyProjectId(value) {
 }
 
 function projectIssuePath(project) {
-  return path.join(issuesDir, project.issueFile ?? `${project.id}.json`)
+  return path.join(getIssuesDir(), project.issueFile ?? `${project.id}.json`)
 }
 
 async function readProjectIssues(project) {
@@ -100,7 +110,7 @@ function sendError(response, statusCode, message) {
 async function runGit(args) {
   try {
     const result = await execFileAsync('git', args, {
-      cwd: rootDir,
+      cwd: getRootDir(),
       timeout: 30000,
     })
 
@@ -297,7 +307,7 @@ async function addProject(response, request) {
     archived: false,
   }
 
-  await writeJson(projectsPath, [...projects, project])
+  await writeJson(getProjectsPath(), [...projects, project])
   await writeFile(projectIssuePath(project), `${JSON.stringify({ projectId: id, issues: [] }, null, 2)}\n`, {
     flag: 'wx',
   })
@@ -355,7 +365,7 @@ async function patchProject(response, request, projectId) {
   }
   const nextProjects = [...projects]
   nextProjects[projectIndex] = project
-  await writeJson(projectsPath, nextProjects)
+  await writeJson(getProjectsPath(), nextProjects)
 
   sendJson(response, 200, {
     project: {

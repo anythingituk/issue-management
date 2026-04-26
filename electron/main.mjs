@@ -1,5 +1,5 @@
 import electron from 'electron'
-import { mkdirSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startIssueApiServer } from '../server/api.js'
@@ -36,13 +36,30 @@ function createWindow() {
   window.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
 }
 
+function prepareDataRoot(dataRoot) {
+  const targetIssuesDir = path.join(dataRoot, 'issues')
+  const targetProjectsFile = path.join(targetIssuesDir, 'projects.json')
+
+  mkdirSync(dataRoot, { recursive: true })
+
+  if (existsSync(targetProjectsFile)) {
+    return
+  }
+
+  const bundledIssuesDir = path.join(__dirname, '..', 'issues')
+  cpSync(bundledIssuesDir, targetIssuesDir, {
+    recursive: true,
+    errorOnExist: false,
+    force: false,
+  })
+}
+
 app.whenReady().then(() => {
   app.setName(appName)
   const defaultDataRoot = path.join(app.getPath('appData'), appName)
-  mkdirSync(defaultDataRoot, { recursive: true })
-  // First-run setup will use this folder for cloned or selected issue data.
-  process.env.ISSUE_ROOT_DIR = process.env.ISSUE_ROOT_DIR ?? path.join(__dirname, '..')
+  prepareDataRoot(defaultDataRoot)
   process.env.CODEX_COMPANION_DATA_DIR = process.env.CODEX_COMPANION_DATA_DIR ?? defaultDataRoot
+  process.env.ISSUE_ROOT_DIR = process.env.ISSUE_ROOT_DIR ?? defaultDataRoot
   apiServer = startIssueApiServer()
   createWindow()
 

@@ -106,11 +106,12 @@ Electron groundwork is present:
 
 - `electron/main.mjs` starts the local API internally.
 - The installed app name is `Codex Companion`.
-- The intended Windows data store is `%APPDATA%/Codex Companion`.
+- The Windows data store is `%APPDATA%/Codex Companion`.
+- On first desktop launch, bundled starter issue data is copied into `%APPDATA%/Codex Companion/issues` if no `projects.json` exists there yet.
 - `npm run desktop` builds the web UI and opens it in an Electron window.
 - `npm run dist:win` creates Windows targets through `electron-builder`.
 
-Next desktop step: add first-run setup so installed users can copy, choose, or clone their Git-backed issue data folder into `%APPDATA%/Codex Companion` instead of relying on the bundled `issues/` directory.
+Next desktop step: add first-run setup so installed users can choose or clone their Git-backed issue data folder into `%APPDATA%/Codex Companion`.
 
 ## AGENTS.md Convention
 
