@@ -1788,16 +1788,9 @@ function App() {
           {aiState.connected ? (
             <div className="ai-connected">
               <p>
-                ChatGPT can help shape issue text from the active project form.
+                ChatGPT is ready for issue writing assistance.
                 {aiState.model ? <small>{aiState.model}</small> : null}
               </p>
-              <button
-                disabled={!selectedProject || !newIssueDetail.trim() || isSuggestingTitle}
-                onClick={suggestIssueTitle}
-                type="button"
-              >
-                {isSuggestingTitle ? 'Suggesting title' : 'Suggest title from description'}
-              </button>
             </div>
           ) : (
             <form className="ai-connect-form" onSubmit={connectOpenAi}>
@@ -2083,13 +2076,28 @@ function App() {
           </div>
         ) : paneMode === 'project' ? (
           <form className="quick-add" onSubmit={addIssue}>
-            <input
-              aria-label="Issue title"
-              disabled={!selectedProject}
-              onChange={(event) => setNewIssueTitle(event.target.value)}
-              placeholder="Short title"
-              value={newIssueTitle}
-            />
+            <div className="quick-title-field">
+              <input
+                aria-label="Issue title"
+                disabled={!selectedProject}
+                onChange={(event) => setNewIssueTitle(event.target.value)}
+                placeholder="Short title"
+                value={newIssueTitle}
+              />
+              <button
+                aria-label="Suggest title from description"
+                disabled={!selectedProject || !aiState.connected || !newIssueDetail.trim() || isSuggestingTitle}
+                onClick={suggestIssueTitle}
+                title={
+                  aiState.connected
+                    ? 'Suggest title from description'
+                    : 'Connect ChatGPT to suggest a title'
+                }
+                type="button"
+              >
+                {isSuggestingTitle ? '...' : 'AI'}
+              </button>
+            </div>
             <input
               aria-label="File path"
               disabled={!selectedProject}
@@ -2129,8 +2137,8 @@ function App() {
               rows={3}
               value={newIssueDetail}
             />
-            <button disabled={!selectedProject} type="submit" title="Add issue">
-              +
+            <button className="quick-save-button" disabled={!selectedProject} type="submit">
+              Save
             </button>
           </form>
         ) : null}
