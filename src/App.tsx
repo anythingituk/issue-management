@@ -1339,6 +1339,12 @@ function App() {
           {syncState.timestamp ? (
             <p className="sync-time">Last checked {formatTime(syncState.timestamp)}</p>
           ) : null}
+          <div className="sync-scope" aria-label="GitHub sync scope">
+            <span>Sync scope</span>
+            <strong>{selectedProject?.name ?? 'All projects'}</strong>
+            <code>{selectedProject?.issueFile ?? 'issues/'}</code>
+            <p>GitHub actions sync the shared issue store for all projects.</p>
+          </div>
           <form className="sync-remote-form" onSubmit={connectGitRemote}>
             <input
               aria-label="GitHub remote URL"
@@ -1379,7 +1385,9 @@ function App() {
               disabled={syncState.tone === 'working'}
               onClick={() => runSync('all')}
               type="button"
-              title="Commit issue changes, pull from GitHub, then push"
+              title={`Commit, pull, and push the shared issue store. Current project context: ${
+                selectedProject?.name ?? 'All projects'
+              }`}
             >
               Sync
             </button>
@@ -1387,7 +1395,9 @@ function App() {
               disabled={syncState.tone === 'working'}
               onClick={() => runSync('pull')}
               type="button"
-              title="Pull issue files from GitHub"
+              title={`Pull the shared issue store from GitHub. Current project context: ${
+                selectedProject?.name ?? 'All projects'
+              }`}
             >
               Pull
             </button>
@@ -1395,7 +1405,9 @@ function App() {
               disabled={syncState.tone === 'working'}
               onClick={() => runSync('push')}
               type="button"
-              title="Commit and push issue files to GitHub"
+              title={`Commit and push the shared issue store. Current project context: ${
+                selectedProject?.name ?? 'All projects'
+              }`}
             >
               Push
             </button>
