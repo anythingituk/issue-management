@@ -54,12 +54,40 @@ function getRootDir() {
   return configuredRootDir ?? defaultRootDir
 }
 
+function getDefaultDataDir() {
+  if (process.env.APPDATA) {
+    return path.join(process.env.APPDATA, 'Codex Companion')
+  }
+
+  if (process.env.LOCALAPPDATA) {
+    return path.join(process.env.LOCALAPPDATA, 'Codex Companion')
+  }
+
+  if (process.env.USER && existsSync(`/mnt/c/Users/${process.env.USER}/AppData/Roaming`)) {
+    return `/mnt/c/Users/${process.env.USER}/AppData/Roaming/Codex Companion`
+  }
+
+  if (process.env.XDG_CONFIG_HOME) {
+    return path.join(process.env.XDG_CONFIG_HOME, 'Codex Companion')
+  }
+
+  if (process.env.HOME) {
+    return path.join(process.env.HOME, '.config', 'Codex Companion')
+  }
+
+  return defaultRootDir
+}
+
 function getDataDir() {
-  return path.resolve(process.env.CODEX_COMPANION_DATA_DIR ?? getRootDir())
+  return path.resolve(process.env.CODEX_COMPANION_DATA_DIR ?? getDefaultDataDir())
 }
 
 function getConfigPath() {
   return path.join(getDataDir(), 'config.json')
+}
+
+function getLegacyConfigPath() {
+  return path.join(defaultRootDir, 'config.json')
 }
 
 function getIssuesDir() {
@@ -98,9 +126,9 @@ function loadSetupConfig() {
 }
 
 function readAppConfig() {
-  const configPath = getConfigPath()
+  const configPath = [getConfigPath(), getLegacyConfigPath()].find((candidate) => existsSync(candidate))
 
-  if (!existsSync(configPath)) {
+  if (!configPath) {
     return {}
   }
 
@@ -990,12 +1018,26 @@ function extractResponseText(payload) {
     return payload.output_text.trim()
   }
 
-  const output = Array.isArray(payload.output) ? payload.output : []
-  return output
-    .flatMap((item) => (Array.isArray(item.content) ? item.content : []))
-    .map((content) => content.text ?? '')
-    .join('')
-    .trim()
+  const chunks = []
+  const collectText = (value) => {
+    if (!value || typeof value !== 'object') {
+      return
+    }
+
+    if (typeof value.text === 'string') {
+      chunks.push(value.text)
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(collectText)
+      return
+    }
+
+    Object.values(value).forEach(collectText)
+  }
+
+  collectText(payload.output)
+  return chunks.join('').trim()
 }
 
 async function aiSuggestTitle(response, request) {
@@ -1019,27 +1061,25 @@ async function aiSuggestTitle(response, request) {
   const model = config.openaiModel ?? process.env.OPENAI_MODEL ?? 'gpt-5-mini'
   const openAiResponse = await fetch('https://api.openai.com/v1/responses', {
     body: JSON.stringify({
+      instructions: [
+        'You create short issue titles for a developer issue tracker.',
+        'Return only one plain-text title.',
+        'Do not include quotes, markdown, prefixes, or explanations.',
+        'Keep the title under 80 characters.',
+      ].join(' '),
       input: [
-        {
-          content: [
-            {
-              text: [
-                'Create a short issue title for this Codex Companion issue.',
-                'Return only the title.',
-                'Use sentence case unless a product or acronym requires capitals.',
-                'Keep it under 80 characters.',
-                category ? `Category: ${category}` : '',
-                `Description: ${description}`,
-              ].filter(Boolean).join('\n'),
-              type: 'input_text',
-            },
-          ],
-          role: 'user',
-        },
-      ],
+        category ? `Category: ${category}` : '',
+        `Description: ${description}`,
+      ].filter(Boolean).join('\n'),
       model,
-      max_output_tokens: 60,
+      max_output_tokens: 200,
+      reasoning: { effort: 'minimal' },
       store: false,
+      text: {
+        format: {
+          type: 'text',
+        },
+      },
     }),
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -1062,11 +1102,16 @@ async function aiSuggestTitle(response, request) {
   const title = extractResponseText(payload).replace(/^["']|["']$/g, '').trim()
 
   if (!title) {
-    sendError(response, 502, 'OpenAI did not return a title.')
+    if (payload.status === 'incomplete' && payload.incomplete_details?.reason === 'max_output_tokens') {
+      sendError(response, 502, 'OpenAI ran out of output tokens before returning a title.')
+      return
+    }
+
+    sendError(response, 502, payload.error?.message ?? 'OpenAI returned no title text.')
     return
   }
 
-  sendJson(response, 200, { title })
+  sendJson(response, 200, { title: title.split(/\r?\n/)[0].slice(0, 80) })
 }
 
 async function route(request, response) {
