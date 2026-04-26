@@ -33,6 +33,7 @@
       "output": "release"
     },
     "files": [
+      "build/**/*",
       "dist/**/*",
       "electron/**/*",
       "server/**/*",
@@ -41,6 +42,7 @@
     ],
     "win": {
       "executableName": "Codex Companion",
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",

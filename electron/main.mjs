@@ -9,6 +9,12 @@ const { app, BrowserWindow, dialog, ipcMain } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const appName = 'Codex Companion'
 const appUserModelId = 'net.anythingit.codex-companion'
+const appIconPath = path.join(
+  __dirname,
+  '..',
+  'build',
+  process.platform === 'win32' ? 'icon.ico' : 'icon.png',
+)
 let apiServer
 let apiBaseUrl = 'http://localhost:8787'
 let mainWindow
@@ -47,8 +53,10 @@ function findAvailablePort(preferredPort) {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    autoHideMenuBar: true,
     backgroundColor: '#18191d',
     height: 860,
+    icon: appIconPath,
     minHeight: 680,
     minWidth: 1080,
     title: appName,
