@@ -1,5 +1,5 @@
 import electron from 'electron'
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -18,6 +18,7 @@ const appIconPath = path.join(
 let apiServer
 let apiBaseUrl = 'http://localhost:8787'
 let mainWindow
+let windowStatePath
 
 if (!app || !BrowserWindow) {
   throw new Error('Electron main process must be started with the electron runtime.')
@@ -51,16 +52,66 @@ function findAvailablePort(preferredPort) {
   })
 }
 
+function readWindowState() {
+  if (!windowStatePath || !existsSync(windowStatePath)) {
+    return {}
+  }
+
+  try {
+    const state = JSON.parse(readFileSync(windowStatePath, 'utf8'))
+    const width = Number(state.width)
+    const height = Number(state.height)
+    const x = Number(state.x)
+    const y = Number(state.y)
+
+    return {
+      ...(Number.isFinite(width) ? { width: Math.max(width, 1080) } : {}),
+      ...(Number.isFinite(height) ? { height: Math.max(height, 680) } : {}),
+      ...(Number.isFinite(x) ? { x } : {}),
+      ...(Number.isFinite(y) ? { y } : {}),
+    }
+  } catch (error) {
+    console.warn(`Unable to read window state at ${windowStatePath}:`, error)
+    return {}
+  }
+}
+
+function saveWindowState() {
+  if (!mainWindow || !windowStatePath || mainWindow.isMinimized()) {
+    return
+  }
+
+  const bounds = mainWindow.isMaximized() ? mainWindow.getNormalBounds() : mainWindow.getBounds()
+  writeFileSync(
+    windowStatePath,
+    `${JSON.stringify(
+      {
+        height: Math.max(bounds.height, 680),
+        width: Math.max(bounds.width, 1080),
+        x: bounds.x,
+        y: bounds.y,
+      },
+      null,
+      2,
+    )}\n`,
+  )
+}
+
 function createWindow() {
+  const windowState = readWindowState()
+
   mainWindow = new BrowserWindow({
     autoHideMenuBar: true,
     backgroundColor: '#18191d',
-    height: 860,
+    height: windowState.height ?? 860,
     icon: appIconPath,
     minHeight: 680,
     minWidth: 1080,
     title: appName,
-    width: 1280,
+    width: windowState.width ?? 1280,
+    ...(windowState.x === undefined || windowState.y === undefined
+      ? {}
+      : { x: windowState.x, y: windowState.y }),
     webPreferences: {
       additionalArguments: [`--codex-companion-api-base-url=${apiBaseUrl}`],
       contextIsolation: true,
@@ -68,6 +119,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.mjs'),
     },
   })
+
+  mainWindow.on('close', saveWindowState)
 
   mainWindow.on('closed', () => {
     mainWindow = undefined
@@ -98,6 +151,7 @@ if (gotSingleInstanceLock) {
 
     const defaultDataRoot = path.join(app.getPath('appData'), appName)
     mkdirSync(defaultDataRoot, { recursive: true })
+    windowStatePath = path.join(app.getPath('userData'), 'window-state.json')
     process.env.CODEX_COMPANION_DATA_DIR = process.env.CODEX_COMPANION_DATA_DIR ?? defaultDataRoot
     const apiPort = await findAvailablePort(Number(process.env.ISSUE_API_PORT ?? 8787))
     apiBaseUrl = `http://localhost:${apiPort}`
