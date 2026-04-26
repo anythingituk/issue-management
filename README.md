@@ -5,8 +5,8 @@ Codex Companion is a local-first issue and snag-list app for Codex-managed proje
 The first screen is the working companion layout:
 
 - project sidebar aligned to local Codex project paths
-- central issue list with date/time, title, file, source, and status
-- detail inspector with notes, status controls, and Codex activity
+- central issue list with date/time, title, file, source, category, and status
+- detail inspector with notes, category, status controls, and Codex activity
 - quick-add flow for user-created future requests
 - visible GitHub pull/push sync controls
 
