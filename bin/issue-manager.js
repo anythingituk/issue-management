@@ -1,11 +1,11 @@
 #!/usr/bin/env node
+import { existsSync, readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const issuesDir = path.join(rootDir, 'issues')
-const projectsPath = path.join(issuesDir, 'projects.json')
+const repoRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 const statusLabels = {
   open: 'Open',
@@ -32,6 +32,7 @@ function usage() {
   issue-manager status --id <issue-id> --status open|in-progress|fixed|deferred
   issue-manager activity --id <issue-id> --message <text>
   issue-manager list [--project <id-or-path>]
+  issue-manager root
 
 Examples:
   issue-manager add --project /mnt/c/dev/issue-management --title "Button overflows on mobile" --file src/App.css --category bug --source Codex
@@ -71,8 +72,52 @@ async function writeJson(filePath, data) {
   await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`)
 }
 
+function candidateDataDirs() {
+  return [
+    process.env.CODEX_COMPANION_DATA_DIR,
+    process.env.APPDATA ? path.join(process.env.APPDATA, 'Codex Companion') : undefined,
+    process.env.USERPROFILE
+      ? path.join(process.env.USERPROFILE, 'AppData', 'Roaming', 'Codex Companion')
+      : undefined,
+    path.join(os.homedir(), 'AppData', 'Roaming', 'Codex Companion'),
+    path.join('/mnt/c/Users', path.basename(os.homedir()), 'AppData', 'Roaming', 'Codex Companion'),
+  ].filter(Boolean)
+}
+
+function readConfiguredRootDir() {
+  for (const dataDir of candidateDataDirs()) {
+    const configPath = path.join(dataDir, 'config.json')
+    if (!existsSync(configPath)) {
+      continue
+    }
+
+    try {
+      const config = JSON.parse(readFileSync(configPath, 'utf8'))
+      if (config.issueRootDir) {
+        return path.resolve(String(config.issueRootDir))
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return undefined
+}
+
+function getRootDir() {
+  return path.resolve(process.env.ISSUE_ROOT_DIR ?? readConfiguredRootDir() ?? repoRootDir)
+}
+
+function getIssuesDir() {
+  return path.join(getRootDir(), 'issues')
+}
+
+function getProjectsPath() {
+  return path.join(getIssuesDir(), 'projects.json')
+}
+
 async function readProjects() {
-  return readJson(projectsPath)
+  return readJson(getProjectsPath())
 }
 
 function normalizePath(value) {
@@ -80,7 +125,7 @@ function normalizePath(value) {
 }
 
 function projectIssuePath(project) {
-  return path.join(issuesDir, project.issueFile ?? `${project.id}.json`)
+  return path.join(getIssuesDir(), project.issueFile ?? `${project.id}.json`)
 }
 
 function findProject(projects, selector) {
@@ -259,6 +304,20 @@ async function listIssues(options) {
   console.table(rows)
 }
 
+function showRoot() {
+  console.log(
+    JSON.stringify(
+      {
+        issuesDir: getIssuesDir(),
+        projectsPath: getProjectsPath(),
+        rootDir: getRootDir(),
+      },
+      null,
+      2,
+    ),
+  )
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2)
 
@@ -268,6 +327,11 @@ async function main() {
   }
 
   const options = parseArgs(args)
+
+  if (command === 'root') {
+    showRoot()
+    return
+  }
 
   if (command === 'add') {
     await addIssue(options)

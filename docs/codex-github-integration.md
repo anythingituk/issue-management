@@ -53,6 +53,13 @@ Implemented commands:
 - `issue-manager status`
 - `issue-manager activity`
 - `issue-manager list`
+- `issue-manager root`
+
+The intake CLI resolves issue data in this order:
+
+- `ISSUE_ROOT_DIR`
+- the saved Codex Companion desktop config in `%APPDATA%/Codex Companion/config.json`
+- the repository-local `issues/` folder
 
 Supported categories:
 
@@ -107,11 +114,11 @@ Electron groundwork is present:
 - `electron/main.mjs` starts the local API internally.
 - The installed app name is `Codex Companion`.
 - The Windows data store is `%APPDATA%/Codex Companion`.
-- On first desktop launch, bundled starter issue data is copied into `%APPDATA%/Codex Companion/issues` if no `projects.json` exists there yet.
+- On first desktop launch, users can create starter data, connect an existing issue-data folder, or clone a GitHub issue-data repo.
+- The active issue-data folder is saved in `%APPDATA%/Codex Companion/config.json`.
+- The desktop app can initialise Git for starter data and connect or update the GitHub `origin` remote.
 - `npm run desktop` builds the web UI and opens it in an Electron window.
 - `npm run dist:win` creates Windows targets through `electron-builder`.
-
-Next desktop step: add first-run setup so installed users can choose or clone their Git-backed issue data folder into `%APPDATA%/Codex Companion`.
 
 ## AGENTS.md Convention
 

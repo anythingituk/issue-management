@@ -58,6 +58,8 @@ After setup, the sidebar shows the active issue-data folder and the GitHub sync 
 The CLI writes to the same JSON files as the app.
 
 ```bash
+node bin/issue-manager.js root
+
 node bin/issue-manager.js add \
   --project /mnt/c/dev/issue-management \
   --title "Button text overflows on mobile" \
@@ -69,6 +71,8 @@ node bin/issue-manager.js status --id iss-001 --status fixed
 node bin/issue-manager.js activity --id iss-001 --message "Codex started inspecting the issue."
 node bin/issue-manager.js list --project /mnt/c/dev/issue-management
 ```
+
+The CLI resolves issue data in this order: `ISSUE_ROOT_DIR`, the saved Codex Companion config in `%APPDATA%/Codex Companion/config.json`, then the repository-local `issues/` folder. That lets Codex write to the same issue store selected by the desktop app.
 
 Categories are `bug`, `snag`, `feature`, `refactor`, `docs`, `testing`, and `question`. User-created items default to `snag`, which signals that Codex should look for an appropriate opportunity to handle it without derailing the active task.
 
