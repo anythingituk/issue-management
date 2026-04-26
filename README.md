@@ -47,6 +47,8 @@ npm run dist:win
 
 GitHub Actions also has a `Windows Package` workflow. It runs on pushes and pull requests to `main`, can be launched manually, and uploads the Windows installer/portable artifacts from `release/`.
 
+For public downloads, push a version tag such as `v0.1.0` or run the `Release` workflow manually with a tag. The release workflow builds the Windows installer/portable artifacts and attaches them to a GitHub Release.
+
 The desktop app uses `Codex Companion` as its installed app name. On Windows, the default data store is `%APPDATA%/Codex Companion`.
 
 On first launch, the app shows a setup screen with three choices:
