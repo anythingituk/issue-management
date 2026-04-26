@@ -1204,25 +1204,25 @@ button {
 
 .quick-title-field input {
   width: 100%;
-  padding-right: 45px;
+  padding-right: 36px;
 }
 
 .quick-title-field button {
   position: absolute;
-  top: 5px;
-  right: 5px;
+  top: 7px;
+  right: 7px;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   min-height: 0;
   padding: 0;
   border: 1px solid rgba(46, 234, 242, 0.36);
-  border-radius: 6px;
+  border-radius: 5px;
   background: rgba(46, 234, 242, 0.08);
   color: var(--companion-cyan);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   line-height: 1;
 }
