@@ -298,6 +298,53 @@ button {
   line-height: 1;
 }
 
+.issue-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr)) auto;
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: end;
+}
+
+.issue-filters label {
+  display: grid;
+  gap: 5px;
+}
+
+.issue-filters label span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.issue-filters select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font: inherit;
+}
+
+.hide-fixed-toggle {
+  display: flex !important;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text-strong);
+}
+
+.hide-fixed-toggle input {
+  margin: 0;
+}
+
 .issue-list {
   display: flex;
   flex-direction: column;
@@ -634,7 +681,8 @@ code {
   }
 
   .pane-header,
-  .quick-add {
+  .quick-add,
+  .issue-filters {
     grid-template-columns: 1fr;
   }
 

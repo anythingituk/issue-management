@@ -5,6 +5,9 @@ import './App.css'
 type IssueStatus = 'open' | 'in-progress' | 'fixed' | 'deferred'
 type IssueSource = 'Codex' | 'User'
 type IssueCategory = 'bug' | 'snag' | 'feature' | 'refactor' | 'docs' | 'testing' | 'question'
+type StatusFilter = IssueStatus | 'all'
+type CategoryFilter = IssueCategory | 'all'
+type SourceFilter = IssueSource | 'all'
 
 type Project = {
   id: string
@@ -100,6 +103,10 @@ function App() {
   const [editDetail, setEditDetail] = useState('')
   const [isSavingIssue, setIsSavingIssue] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all')
+  const [hideFixed, setHideFixed] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [appError, setAppError] = useState('')
   const [syncState, setSyncState] = useState<SyncState>({
@@ -184,12 +191,13 @@ function App() {
   const filteredIssues = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
 
-    if (!query) {
-      return issues
-    }
-
     return issues.filter((issue) =>
-      [
+      (!hideFixed || issue.status !== 'fixed') &&
+      (statusFilter === 'all' || issue.status === statusFilter) &&
+      (categoryFilter === 'all' || issue.category === categoryFilter) &&
+      (sourceFilter === 'all' || issue.source === sourceFilter) &&
+      (!query ||
+        [
         issue.title,
         issue.file ?? '',
         statusLabels[issue.status],
@@ -200,9 +208,9 @@ function App() {
       ]
         .join(' ')
         .toLowerCase()
-        .includes(query),
+          .includes(query)),
     )
-  }, [issues, searchQuery])
+  }, [categoryFilter, hideFixed, issues, searchQuery, sourceFilter, statusFilter])
   const selectedIssue =
     filteredIssues.find((issue) => issue.id === selectedIssueId) ?? filteredIssues[0]
 
@@ -542,6 +550,56 @@ function App() {
           </button>
         </form>
 
+        <div className="issue-filters" aria-label="Issue filters">
+          <label>
+            <span>Status</span>
+            <select
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              value={statusFilter}
+            >
+              <option value="all">All</option>
+              {(Object.keys(statusLabels) as IssueStatus[]).map((status) => (
+                <option key={status} value={status}>
+                  {statusLabels[status]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Category</span>
+            <select
+              onChange={(event) => setCategoryFilter(event.target.value as CategoryFilter)}
+              value={categoryFilter}
+            >
+              <option value="all">All</option>
+              {(Object.keys(categoryLabels) as IssueCategory[]).map((category) => (
+                <option key={category} value={category}>
+                  {categoryLabels[category]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Source</span>
+            <select
+              onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}
+              value={sourceFilter}
+            >
+              <option value="all">All</option>
+              <option value="Codex">Codex</option>
+              <option value="User">User</option>
+            </select>
+          </label>
+          <label className="hide-fixed-toggle">
+            <input
+              checked={hideFixed}
+              onChange={(event) => setHideFixed(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Hide fixed</span>
+          </label>
+        </div>
+
         <div className="issue-list">
           {filteredIssues.map((issue) => (
             <button
@@ -562,10 +620,19 @@ function App() {
           ))}
           {!isLoading && filteredIssues.length === 0 ? (
             <div className="empty-state">
-              <p>{searchQuery ? 'No issues match this search.' : 'No issues in this project yet.'}</p>
-              {searchQuery ? (
-                <button onClick={() => setSearchQuery('')} type="button">
-                  Clear search
+              <p>{issues.length ? 'No issues match these filters.' : 'No issues in this project yet.'}</p>
+              {issues.length ? (
+                <button
+                  onClick={() => {
+                    setSearchQuery('')
+                    setStatusFilter('all')
+                    setCategoryFilter('all')
+                    setSourceFilter('all')
+                    setHideFixed(false)
+                  }}
+                  type="button"
+                >
+                  Clear filters
                 </button>
               ) : null}
             </div>
