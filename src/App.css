@@ -398,11 +398,30 @@
   gap: 8px;
 }
 
+.sync-remote-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 78px;
+  gap: 8px;
+}
+
+.sync-remote-form input {
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 12px;
+}
+
 button {
   font: inherit;
 }
 
 .sync-actions button,
+.sync-remote-form button,
 .status-controls button,
 .quick-add button {
   border: 1px solid var(--border);
@@ -423,6 +442,11 @@ button {
 }
 
 .sync-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.sync-remote-form button:disabled {
   cursor: wait;
   opacity: 0.65;
 }

@@ -34,8 +34,10 @@ type Issue = {
 
 type SyncState = {
   tone: 'ready' | 'working' | 'error' | 'success'
+  ready?: boolean
   message: string
   output?: string
+  remoteUrl?: string
   timestamp?: string
 }
 
@@ -147,6 +149,8 @@ function App() {
   const [canChooseFolder, setCanChooseFolder] = useState(false)
   const [issueDataPath, setIssueDataPath] = useState('')
   const [isSwitchingIssueData, setIsSwitchingIssueData] = useState(false)
+  const [gitRemoteUrl, setGitRemoteUrl] = useState('')
+  const [isConnectingGit, setIsConnectingGit] = useState(false)
   const [syncState, setSyncState] = useState<SyncState>({
     tone: 'ready',
     message: 'Checking GitHub sync...',
@@ -316,11 +320,22 @@ function App() {
 
   async function refreshSyncStatus() {
     try {
-      const payload = await apiJson<{ checkedAt?: string; message: string; output?: string }>('/api/sync/status')
+      const payload = await apiJson<{
+        checkedAt?: string
+        message: string
+        output?: string
+        ready?: boolean
+        remoteUrl?: string
+      }>('/api/sync/status')
+      if (payload.remoteUrl) {
+        setGitRemoteUrl(payload.remoteUrl)
+      }
       setSyncState({
         tone: 'ready',
+        ready: payload.ready,
         message: payload.message,
         output: payload.output,
+        remoteUrl: payload.remoteUrl,
         timestamp: payload.checkedAt,
       })
     } catch (error) {
@@ -737,6 +752,53 @@ function App() {
     }
   }
 
+  async function connectGitRemote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const remoteUrl = gitRemoteUrl.trim()
+    if (!remoteUrl) {
+      setSyncState({
+        tone: 'error',
+        message: 'GitHub remote URL is required.',
+        timestamp: new Date().toISOString(),
+      })
+      return
+    }
+
+    setIsConnectingGit(true)
+    setSyncState({
+      tone: 'working',
+      message: 'Connecting GitHub remote...',
+    })
+
+    try {
+      const payload = await apiJson<{ checkedAt?: string; message: string; output?: string; remoteUrl?: string }>(
+        '/api/sync/connect',
+        {
+          body: JSON.stringify({ remoteUrl }),
+          method: 'POST',
+        },
+      )
+      setGitRemoteUrl(payload.remoteUrl ?? remoteUrl)
+      await refreshSyncStatus()
+      setSyncState({
+        tone: 'success',
+        message: payload.message,
+        output: payload.output,
+        remoteUrl: payload.remoteUrl ?? remoteUrl,
+        timestamp: payload.checkedAt ?? new Date().toISOString(),
+      })
+    } catch (error) {
+      setSyncState({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'Unable to connect GitHub remote.',
+        timestamp: new Date().toISOString(),
+      })
+    } finally {
+      setIsConnectingGit(false)
+    }
+  }
+
   if (!setupState?.configured) {
     return (
       <main className="setup-shell">
@@ -990,6 +1052,17 @@ function App() {
           {syncState.timestamp ? (
             <p className="sync-time">Last checked {formatTime(syncState.timestamp)}</p>
           ) : null}
+          <form className="sync-remote-form" onSubmit={connectGitRemote}>
+            <input
+              aria-label="GitHub remote URL"
+              onChange={(event) => setGitRemoteUrl(event.target.value)}
+              placeholder="git@github.com:user/issues.git"
+              value={gitRemoteUrl}
+            />
+            <button disabled={syncState.tone === 'working' || isConnectingGit} type="submit">
+              Connect
+            </button>
+          </form>
           {syncState.output ? <pre className="sync-output">{syncState.output}</pre> : null}
           <div className="sync-actions" aria-label="GitHub sync actions">
             <button

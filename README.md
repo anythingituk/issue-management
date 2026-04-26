@@ -51,6 +51,8 @@ On first launch, the app shows a setup screen with three choices:
 
 The selected issue-data root is saved in `%APPDATA%/Codex Companion/config.json`, so the workspace and Git repository can stay named `issue-management` while the installed app and default store use `Codex Companion`.
 
+After setup, the sidebar shows the active issue-data folder and the GitHub sync panel lets users connect a remote URL. For starter local data, Codex Companion can initialise Git in that issue-data folder, set `origin`, and use the normal Sync/Push controls from then on.
+
 ## Codex Intake CLI
 
 The CLI writes to the same JSON files as the app.

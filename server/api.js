@@ -312,6 +312,7 @@ async function syncStatus(response) {
   const branch = await runGit(['branch', '--show-current'])
   const upstream = await runGit(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
   const divergence = upstream.ok ? await runGit(['rev-list', '--left-right', '--count', '@{u}...HEAD']) : undefined
+  const remote = await runGit(['config', '--get', 'remote.origin.url'])
 
   if (!status.ok) {
     sendJson(response, 200, {
@@ -319,6 +320,7 @@ async function syncStatus(response) {
       ready: false,
       message: 'Codex Companion is not connected to a git repository yet.',
       output: status.output,
+      remoteUrl: remote.ok ? remote.output : '',
     })
     return
   }
@@ -346,6 +348,7 @@ async function syncStatus(response) {
     ready: true,
     message,
     output: status.output,
+    remoteUrl: remote.ok ? remote.output : '',
     upstream: upstream.ok ? upstream.output : '',
   })
 }
@@ -390,7 +393,11 @@ async function syncPush(response) {
     return
   }
 
-  const push = await runGit(['push'])
+  const upstream = await runGit(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
+  const branch = await runGit(['branch', '--show-current'])
+  const push = await runGit(
+    upstream.ok ? ['push'] : ['push', '-u', 'origin', branch.ok && branch.output ? branch.output : 'main'],
+  )
   if (!push.ok) {
     sendError(response, 409, push.output || 'Git push failed.')
     return
@@ -410,13 +417,17 @@ async function syncAll(response) {
     return
   }
 
-  const pull = await runGit(['pull', '--rebase'])
+  const upstream = await runGit(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'])
+  const pull = upstream.ok ? await runGit(['pull', '--rebase']) : { ok: true, output: '' }
   if (!pull.ok) {
     sendError(response, 409, pull.output || 'Git pull failed.')
     return
   }
 
-  const push = await runGit(['push'])
+  const branch = await runGit(['branch', '--show-current'])
+  const push = await runGit(
+    upstream.ok ? ['push'] : ['push', '-u', 'origin', branch.ok && branch.output ? branch.output : 'main'],
+  )
   if (!push.ok) {
     sendError(response, 409, push.output || 'Git push failed.')
     return
@@ -426,6 +437,56 @@ async function syncAll(response) {
     completedAt: new Date().toISOString(),
     message: 'Issue data synced with GitHub.',
     output: [commit.output, pull.output, push.output].filter(Boolean).join('\n\n'),
+  })
+}
+
+async function syncConnect(response, request) {
+  const body = await readRequestJson(request)
+  const remoteUrl = String(body.remoteUrl ?? '').trim()
+
+  if (!remoteUrl) {
+    sendError(response, 400, 'GitHub remote URL is required.')
+    return
+  }
+
+  let status = await runGit(['status', '--short'])
+  const output = []
+
+  if (!status.ok) {
+    const init = await runGit(['init'])
+    if (!init.ok) {
+      sendError(response, 409, init.output || 'Git init failed.')
+      return
+    }
+    output.push(init.output)
+
+    const branch = await runGit(['branch', '-M', 'main'])
+    if (!branch.ok) {
+      sendError(response, 409, branch.output || 'Unable to set main branch.')
+      return
+    }
+    output.push(branch.output)
+    status = await runGit(['status', '--short'])
+  }
+
+  const existingRemote = await runGit(['remote', 'get-url', 'origin'])
+  const remote = existingRemote.ok
+    ? await runGit(['remote', 'set-url', 'origin', remoteUrl])
+    : await runGit(['remote', 'add', 'origin', remoteUrl])
+
+  if (!remote.ok) {
+    sendError(response, 409, remote.output || 'Unable to set GitHub remote.')
+    return
+  }
+
+  output.push(remote.output)
+
+  sendJson(response, 200, {
+    checkedAt: new Date().toISOString(),
+    message: existingRemote.ok ? 'GitHub remote updated.' : 'GitHub remote connected.',
+    output: output.filter(Boolean).join('\n\n'),
+    remoteUrl,
+    ready: status.ok,
   })
 }
 
@@ -726,6 +787,11 @@ async function route(request, response) {
 
   if (request.method === 'POST' && url.pathname === '/api/sync/pull') {
     await syncPull(response)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/sync/connect') {
+    await syncConnect(response, request)
     return
   }
 
