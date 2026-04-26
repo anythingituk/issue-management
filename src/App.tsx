@@ -1341,9 +1341,9 @@ function App() {
           ) : null}
           <div className="sync-scope" aria-label="GitHub sync scope">
             <span>Sync scope</span>
-            <strong>{selectedProject?.name ?? 'All projects'}</strong>
-            <code>{selectedProject?.issueFile ?? 'issues/'}</code>
-            <p>GitHub actions sync the shared issue store for all projects.</p>
+            <strong>All projects</strong>
+            <code>issues/</code>
+            <p>GitHub actions pull and push the shared Codex Companion issue store.</p>
           </div>
           <form className="sync-remote-form" onSubmit={connectGitRemote}>
             <input
@@ -1385,9 +1385,7 @@ function App() {
               disabled={syncState.tone === 'working'}
               onClick={() => runSync('all')}
               type="button"
-              title={`Commit, pull, and push the shared issue store. Current project context: ${
-                selectedProject?.name ?? 'All projects'
-              }`}
+              title="Commit, pull, and push the shared issue store for all projects"
             >
               Sync
             </button>
@@ -1395,9 +1393,7 @@ function App() {
               disabled={syncState.tone === 'working'}
               onClick={() => runSync('pull')}
               type="button"
-              title={`Pull the shared issue store from GitHub. Current project context: ${
-                selectedProject?.name ?? 'All projects'
-              }`}
+              title="Pull the shared issue store for all projects from GitHub"
             >
               Pull
             </button>
@@ -1405,9 +1401,7 @@ function App() {
               disabled={syncState.tone === 'working'}
               onClick={() => runSync('push')}
               type="button"
-              title={`Commit and push the shared issue store. Current project context: ${
-                selectedProject?.name ?? 'All projects'
-              }`}
+              title="Commit and push the shared issue store for all projects to GitHub"
             >
               Push
             </button>
