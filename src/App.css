@@ -208,13 +208,19 @@
   box-shadow: 0 0 0 3px var(--focus-soft);
 }
 
-.project-button {
+.project-card {
   position: relative;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.project-button {
   display: grid;
   gap: 3px;
   width: 100%;
-  padding: 12px;
-  border: 1px solid transparent;
+  padding: 12px 44px 12px 12px;
+  border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--text);
@@ -222,15 +228,39 @@
   cursor: pointer;
 }
 
-.project-button:hover,
-.project-button.active {
+.project-card:hover,
+.project-card.active,
+.project-card.settings-open {
   background: var(--control);
   border-color: var(--focus);
   box-shadow: 0 0 0 1px rgba(77, 141, 255, 0.16);
 }
 
-.project-button.archived {
+.project-card.archived {
   opacity: 0.62;
+}
+
+.project-card-settings {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: rgba(17, 25, 34, 0.76);
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.project-card-settings:hover,
+.project-card-settings[aria-expanded='true'] {
+  border-color: var(--focus);
+  color: var(--text-strong);
+  box-shadow: 0 0 0 3px var(--focus-soft);
 }
 
 .project-name {
@@ -254,7 +284,8 @@
 
 .add-project-form,
 .edit-project-form,
-.project-settings-panel {
+.project-settings-panel,
+.project-local-settings {
   display: grid;
   gap: 8px;
 }
@@ -362,6 +393,13 @@
   margin-top: 2px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
+}
+
+.project-local-settings {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(17, 25, 34, 0.48);
 }
 
 .data-store-panel {

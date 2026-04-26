@@ -156,6 +156,7 @@ function App() {
   const [editProjectBranch, setEditProjectBranch] = useState('')
   const [isSavingProject, setIsSavingProject] = useState(false)
   const [showProjectSettings, setShowProjectSettings] = useState(false)
+  const [openProjectSettingsId, setOpenProjectSettingsId] = useState('')
   const [codexProjects, setCodexProjects] = useState<CodexProject[]>([])
   const [isLoadingCodexProjects, setIsLoadingCodexProjects] = useState(false)
   const [addingCodexProjectPath, setAddingCodexProjectPath] = useState('')
@@ -1106,20 +1107,39 @@ function App() {
           </div>
           <div className="project-list">
             {visibleProjects.map((project) => (
-              <button
-                className={`project-button ${project.id === selectedProject?.id ? 'active' : ''} ${
+              <div
+                className={`project-card ${project.id === selectedProject?.id ? 'active' : ''} ${
                   project.archived ? 'archived' : ''
-                }`}
+                } ${openProjectSettingsId === project.id ? 'settings-open' : ''}`}
                 key={project.id}
-                onClick={() => setSelectedProjectId(project.id)}
-                type="button"
               >
-                <span className="project-name">{project.name}</span>
-                <span className="project-path">{project.path}</span>
-                <span className="project-count">
-                  {project.archived ? 'Archived' : `${projectOpenCount(project)} open`}
-                </span>
-              </button>
+                <button
+                  className="project-button"
+                  onClick={() => setSelectedProjectId(project.id)}
+                  type="button"
+                >
+                  <span className="project-name">{project.name}</span>
+                  <span className="project-path">{project.path}</span>
+                  <span className="project-count">
+                    {project.archived ? 'Archived' : `${projectOpenCount(project)} open`}
+                  </span>
+                </button>
+                <button
+                  aria-expanded={openProjectSettingsId === project.id}
+                  aria-label={`Settings for ${project.name}`}
+                  className="project-card-settings"
+                  onClick={() => {
+                    setSelectedProjectId(project.id)
+                    setOpenProjectSettingsId((currentId) =>
+                      currentId === project.id ? '' : project.id,
+                    )
+                  }}
+                  title="Project settings"
+                  type="button"
+                >
+                  ⚙
+                </button>
+              </div>
             ))}
           </div>
           <div className="project-sidebar-actions">
@@ -1179,53 +1199,51 @@ function App() {
             </form>
           ) : null}
 
-          {showProjectSettings ? (
-            <div className="project-settings-panel">
-              {selectedProject ? (
-                <form className="edit-project-form" onSubmit={saveProject}>
-                  <p className="section-label">Selected Project</p>
+          {selectedProject && openProjectSettingsId === selectedProject.id ? (
+            <div className="project-local-settings">
+              <form className="edit-project-form" onSubmit={saveProject}>
+                <p className="section-label">Selected Project</p>
+                <input
+                  aria-label="Selected project name"
+                  onChange={(event) => setEditProjectName(event.target.value)}
+                  value={editProjectName}
+                />
+                <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
                   <input
-                    aria-label="Selected project name"
-                    onChange={(event) => setEditProjectName(event.target.value)}
-                    value={editProjectName}
+                    aria-label="Selected project path"
+                    onChange={(event) => setEditProjectPath(event.target.value)}
+                    value={editProjectPath}
                   />
-                  <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
-                    <input
-                      aria-label="Selected project path"
-                      onChange={(event) => setEditProjectPath(event.target.value)}
-                      value={editProjectPath}
-                    />
-                    {canChooseFolder ? (
-                      <button
-                        disabled={isSavingProject}
-                        onClick={chooseEditProjectFolder}
-                        type="button"
-                        title="Browse for project folder"
-                      >
-                        Browse
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="add-project-row">
-                    <input
-                      aria-label="Selected project branch"
-                      onChange={(event) => setEditProjectBranch(event.target.value)}
-                      value={editProjectBranch}
-                    />
-                    <button disabled={isSavingProject} type="submit" title="Save project">
-                      Save
+                  {canChooseFolder ? (
+                    <button
+                      disabled={isSavingProject}
+                      onClick={chooseEditProjectFolder}
+                      type="button"
+                      title="Browse for project folder"
+                    >
+                      Browse
                     </button>
-                  </div>
-                  <button
-                    className="archive-project-button"
-                    disabled={isSavingProject}
-                    onClick={() => setProjectArchived(selectedProject, !selectedProject.archived)}
-                    type="button"
-                  >
-                    {selectedProject.archived ? 'Restore project' : 'Archive project'}
+                  ) : null}
+                </div>
+                <div className="add-project-row">
+                  <input
+                    aria-label="Selected project branch"
+                    onChange={(event) => setEditProjectBranch(event.target.value)}
+                    value={editProjectBranch}
+                  />
+                  <button disabled={isSavingProject} type="submit" title="Save project">
+                    Save
                   </button>
-                </form>
-              ) : null}
+                </div>
+                <button
+                  className="archive-project-button"
+                  disabled={isSavingProject}
+                  onClick={() => setProjectArchived(selectedProject, !selectedProject.archived)}
+                  type="button"
+                >
+                  {selectedProject.archived ? 'Restore project' : 'Archive project'}
+                </button>
+              </form>
 
               <form className="data-store-panel" onSubmit={switchIssueData}>
                 <p className="section-label">Issue Data</p>
@@ -1251,6 +1269,11 @@ function App() {
                   {isSwitchingIssueData ? 'Switching...' : 'Use folder'}
                 </button>
               </form>
+            </div>
+          ) : null}
+
+          {showProjectSettings ? (
+            <div className="project-settings-panel">
               <section className="codex-projects-panel" aria-label="Codex projects">
                 <div className="codex-projects-header">
                   <p className="section-label">Codex Projects</p>
