@@ -811,10 +811,17 @@ button {
   font-size: 12px;
 }
 
+.view-switcher button:hover,
+.view-switcher button:focus-visible {
+  border-color: #0073fb;
+  color: #0073fb;
+  box-shadow: 0 0 0 3px rgba(0, 115, 251, 0.18);
+}
+
 .view-switcher button.active {
   border-color: var(--border);
   background: var(--control);
-  color: #0073fb;
+  color: var(--text-strong);
 }
 
 .search-field {
