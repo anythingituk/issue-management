@@ -171,6 +171,7 @@
 
 .sidebar-section,
 .project-list,
+.data-store-panel,
 .sync-panel {
   display: flex;
   flex-direction: column;
@@ -297,6 +298,37 @@
 
 .add-project-form button:disabled,
 .edit-project-form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.data-store-panel {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.data-store-panel code {
+  width: 100%;
+}
+
+.data-store-panel button {
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.data-store-panel > button {
+  background: var(--text-strong);
+  color: var(--surface);
+}
+
+.data-store-panel button:disabled {
   cursor: wait;
   opacity: 0.65;
 }

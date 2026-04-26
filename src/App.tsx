@@ -145,6 +145,8 @@ function App() {
   const [setupError, setSetupError] = useState('')
   const [isSettingUp, setIsSettingUp] = useState(false)
   const [canChooseFolder, setCanChooseFolder] = useState(false)
+  const [issueDataPath, setIssueDataPath] = useState('')
+  const [isSwitchingIssueData, setIsSwitchingIssueData] = useState(false)
   const [syncState, setSyncState] = useState<SyncState>({
     tone: 'ready',
     message: 'Checking GitHub sync...',
@@ -175,6 +177,7 @@ function App() {
         }
 
         setSetupState(setup)
+        setIssueDataPath(setup.rootDir)
 
         if (setup.configured) {
           await loadProjectList()
@@ -353,6 +356,7 @@ function App() {
       })
 
       setSetupState(setup)
+      setIssueDataPath(setup.rootDir)
       await loadProjectList()
       await refreshSyncStatus()
     } catch (error) {
@@ -386,6 +390,48 @@ function App() {
     if (selectedPath) {
       setSetupPath(selectedPath)
       setSetupError('')
+    }
+  }
+
+  async function chooseIssueDataFolder() {
+    const selectedPath = await chooseFolder({
+      buttonLabel: 'Use folder',
+      title: 'Choose Codex Companion issue data folder',
+    })
+    if (selectedPath) {
+      setIssueDataPath(selectedPath)
+      setAppError('')
+    }
+  }
+
+  async function switchIssueData(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const nextPath = issueDataPath.trim()
+    if (!nextPath) {
+      setAppError('Issue data folder is required.')
+      return
+    }
+
+    setIsSwitchingIssueData(true)
+
+    try {
+      const setup = await apiJson<SetupState>('/api/setup/existing', {
+        body: JSON.stringify({ path: nextPath }),
+        method: 'POST',
+      })
+
+      setSetupState(setup)
+      setIssueDataPath(setup.rootDir)
+      setIssues([])
+      setSelectedIssueId('')
+      await loadProjectList()
+      await refreshSyncStatus()
+      setAppError('')
+    } catch (error) {
+      setAppError(error instanceof Error ? error.message : 'Unable to switch issue data.')
+    } finally {
+      setIsSwitchingIssueData(false)
     }
   }
 
@@ -909,6 +955,31 @@ function App() {
             </form>
           ) : null}
         </div>
+
+        <form className="data-store-panel" onSubmit={switchIssueData}>
+          <p className="section-label">Issue Data</p>
+          <code>{setupState.rootDir}</code>
+          <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
+            <input
+              aria-label="Issue data folder"
+              onChange={(event) => setIssueDataPath(event.target.value)}
+              value={issueDataPath}
+            />
+            {canChooseFolder ? (
+              <button
+                disabled={isSwitchingIssueData}
+                onClick={chooseIssueDataFolder}
+                type="button"
+                title="Browse for issue data folder"
+              >
+                Browse
+              </button>
+            ) : null}
+          </div>
+          <button disabled={isSwitchingIssueData} type="submit">
+            {isSwitchingIssueData ? 'Switching...' : 'Use folder'}
+          </button>
+        </form>
 
         <div className={`sync-panel ${syncState.tone}`}>
           <p className="section-label">GitHub Sync</p>
