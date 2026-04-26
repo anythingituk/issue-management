@@ -24,6 +24,12 @@ if (!app || !BrowserWindow) {
   throw new Error('Electron main process must be started with the electron runtime.')
 }
 
+app.setName(appName)
+app.setAppUserModelId(appUserModelId)
+if (process.platform === 'linux') {
+  app.setDesktopName('Codex Companion')
+}
+
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
@@ -137,8 +143,6 @@ function createWindow() {
 
 if (gotSingleInstanceLock) {
   app.whenReady().then(async () => {
-    app.setName(appName)
-    app.setAppUserModelId(appUserModelId)
     ipcMain.handle('codex-companion:choose-folder', async (_event, options = {}) => {
       const result = await dialog.showOpenDialog({
         buttonLabel: options.buttonLabel || 'Use folder',

@@ -2,6 +2,7 @@
   "name": "issue-management",
   "private": true,
   "version": "0.1.0",
+  "productName": "Codex Companion",
   "description": "Codex companion for issue and snag management",
   "author": "Anything IT",
   "type": "module",
