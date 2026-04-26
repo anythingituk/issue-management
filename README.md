@@ -6,6 +6,7 @@ The first screen is the working companion layout:
 
 - project sidebar aligned to local Codex project paths
 - central issue list with date/time, title, file, source, category, and status
+- Codex Queue and User Added views across active projects
 - detail inspector with notes, category, status controls, and Codex activity
 - quick-add flow for user-created future requests
 - sidebar flow for adding local Codex projects

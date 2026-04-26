@@ -485,6 +485,33 @@ button {
   min-width: 0;
 }
 
+.view-switcher {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, auto));
+  gap: 6px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.view-switcher button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.view-switcher button.active {
+  border-color: var(--border);
+  background: var(--control);
+  color: var(--text-strong);
+}
+
 .search-field {
   position: relative;
   display: block;
@@ -617,6 +644,10 @@ button {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+.issue-row.queue-row {
+  grid-template-columns: 18px 82px minmax(150px, 1fr) 82px minmax(120px, 190px) 68px;
 }
 
 .issue-row:hover,
@@ -957,6 +988,10 @@ code {
 
   .search-field {
     width: 100%;
+  }
+
+  .view-switcher {
+    grid-template-columns: 1fr;
   }
 
   .issue-row {

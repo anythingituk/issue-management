@@ -86,6 +86,7 @@ Implemented API endpoints:
 
 - `POST /api/projects`
 - `PATCH /api/projects/:id`
+- `GET /api/queue`
 - `GET /api/sync/status`
 - `POST /api/sync/pull`
 - `POST /api/sync/push`
@@ -93,6 +94,7 @@ Implemented API endpoints:
 
 `POST /api/projects` appends to `issues/projects.json` and creates the matching empty project issue file.
 `PATCH /api/projects/:id` updates project name, path, branch, and archived state while preserving the id and issue file.
+`GET /api/queue` returns non-fixed issues across active projects for the Codex Queue and User Added views.
 
 The push endpoint stages only `issues/`, commits with `Update issue list`, and then runs `git push`.
 

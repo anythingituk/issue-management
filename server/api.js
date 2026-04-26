@@ -633,6 +633,44 @@ async function getIssues(response, searchParams) {
   sendJson(response, 200, { issues: await readProjectIssues(project) })
 }
 
+async function getQueue(response) {
+  const projects = await readProjects()
+  const queue = []
+
+  for (const project of projects) {
+    if (project.archived) {
+      continue
+    }
+
+    const issues = await readProjectIssues(project)
+    for (const issue of issues) {
+      if (issue.status === 'fixed') {
+        continue
+      }
+
+      queue.push({
+        ...issue,
+        projectName: project.name,
+        projectPath: project.path,
+      })
+    }
+  }
+
+  queue.sort((left, right) => {
+    const statusWeight = { 'in-progress': 0, open: 1, deferred: 2, fixed: 3 }
+    const leftWeight = statusWeight[left.status] ?? 4
+    const rightWeight = statusWeight[right.status] ?? 4
+
+    if (leftWeight !== rightWeight) {
+      return leftWeight - rightWeight
+    }
+
+    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+  })
+
+  sendJson(response, 200, { issues: queue })
+}
+
 async function addIssue(response, request) {
   const body = await readRequestJson(request)
   const projects = await readProjects()
@@ -746,6 +784,11 @@ async function route(request, response) {
 
   if (request.method === 'GET' && url.pathname === '/api/issues') {
     await getIssues(response, url.searchParams)
+    return
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/queue') {
+    await getQueue(response)
     return
   }
 

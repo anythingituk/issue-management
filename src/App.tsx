@@ -32,6 +32,11 @@ type Issue = {
   activity: string[]
 }
 
+type QueueIssue = Issue & {
+  projectName: string
+  projectPath: string
+}
+
 type SyncState = {
   tone: 'ready' | 'working' | 'error' | 'success'
   ready?: boolean
@@ -116,7 +121,9 @@ function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState('')
   const [issues, setIssues] = useState<Issue[]>([])
+  const [queueIssues, setQueueIssues] = useState<QueueIssue[]>([])
   const [selectedIssueId, setSelectedIssueId] = useState('')
+  const [paneMode, setPaneMode] = useState<'project' | 'codex' | 'user'>('project')
   const [newIssueTitle, setNewIssueTitle] = useState('')
   const [newIssueFile, setNewIssueFile] = useState('')
   const [newIssueCategory, setNewIssueCategory] = useState<IssueCategory>('snag')
@@ -168,6 +175,11 @@ function App() {
     setAppError('')
   }
 
+  async function loadQueue() {
+    const payload = await apiJson<{ issues: QueueIssue[] }>('/api/queue')
+    setQueueIssues(payload.issues)
+  }
+
   useEffect(() => {
     let ignore = false
     setCanChooseFolder(Boolean(window.codexCompanion?.chooseFolder || window.codexCompanion?.chooseIssueFolder))
@@ -185,9 +197,11 @@ function App() {
 
         if (setup.configured) {
           await loadProjectList()
+          await loadQueue()
         } else {
           setProjects([])
           setIssues([])
+          setQueueIssues([])
           setSelectedProjectId('')
           setSelectedIssueId('')
         }
@@ -229,7 +243,11 @@ function App() {
         }
 
         setIssues(payload.issues)
-        setSelectedIssueId(payload.issues[0]?.id || '')
+        setSelectedIssueId((currentIssueId) =>
+          payload.issues.some((issue) => issue.id === currentIssueId)
+            ? currentIssueId
+            : payload.issues[0]?.id || '',
+        )
         setSearchQuery('')
         setAppError('')
       } catch (error) {
@@ -251,6 +269,7 @@ function App() {
   }, [selectedProjectId])
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
+  const selectedQueueIssue = queueIssues.find((issue) => issue.id === selectedIssueId)
   const visibleProjects = useMemo(
     () => projects.filter((project) => showArchivedProjects || !project.archived),
     [projects, showArchivedProjects],
@@ -292,8 +311,50 @@ function App() {
           .includes(query)),
     )
   }, [categoryFilter, hideFixed, issues, searchQuery, sourceFilter, statusFilter])
+
+  const filteredQueueIssues = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    const source = paneMode === 'user' ? 'User' : 'Codex'
+
+    return queueIssues.filter((issue) =>
+      issue.source === source &&
+      (statusFilter === 'all' || issue.status === statusFilter) &&
+      (categoryFilter === 'all' || issue.category === categoryFilter) &&
+      (!query ||
+        [
+          issue.title,
+          issue.file ?? '',
+          issue.projectName,
+          issue.projectPath,
+          statusLabels[issue.status],
+          categoryLabels[issue.category],
+          issue.detail,
+          ...issue.activity,
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(query)),
+    )
+  }, [categoryFilter, paneMode, queueIssues, searchQuery, statusFilter])
+
+  const queueCounts = useMemo(
+    () => ({
+      codex: queueIssues.filter((issue) => issue.source === 'Codex').length,
+      codexInProgress: queueIssues.filter(
+        (issue) => issue.source === 'Codex' && issue.status === 'in-progress',
+      ).length,
+      user: queueIssues.filter((issue) => issue.source === 'User').length,
+      userSnags: queueIssues.filter(
+        (issue) => issue.source === 'User' && issue.category === 'snag',
+      ).length,
+    }),
+    [queueIssues],
+  )
+
   const selectedIssue =
-    filteredIssues.find((issue) => issue.id === selectedIssueId) ?? filteredIssues[0]
+    filteredIssues.find((issue) => issue.id === selectedIssueId) ??
+    selectedQueueIssue ??
+    filteredIssues[0]
 
   useEffect(() => {
     if (!selectedIssue) {
@@ -373,6 +434,7 @@ function App() {
       setSetupState(setup)
       setIssueDataPath(setup.rootDir)
       await loadProjectList()
+      await loadQueue()
       await refreshSyncStatus()
     } catch (error) {
       setSetupError(error instanceof Error ? error.message : 'Unable to complete setup.')
@@ -441,6 +503,7 @@ function App() {
       setIssues([])
       setSelectedIssueId('')
       await loadProjectList()
+      await loadQueue()
       await refreshSyncStatus()
       setAppError('')
     } catch (error) {
@@ -472,6 +535,12 @@ function App() {
     }
   }
 
+  async function openQueueIssue(issue: QueueIssue) {
+    setPaneMode('project')
+    setSelectedProjectId(issue.projectId)
+    setSelectedIssueId(issue.id)
+  }
+
   async function updateStatus(issueId: string, status: IssueStatus) {
     const previousIssues = issues
 
@@ -497,6 +566,7 @@ function App() {
         currentIssues.map((issue) => (issue.id === issueId ? payload.issue : issue)),
       )
       setAppError('')
+      await loadQueue()
       await refreshSyncStatus()
     } catch (error) {
       setIssues(previousIssues)
@@ -546,6 +616,7 @@ function App() {
         currentIssues.map((issue) => (issue.id === selectedIssue.id ? payload.issue : issue)),
       )
       setAppError('')
+      await loadQueue()
       await refreshSyncStatus()
     } catch (error) {
       setIssues(previousIssues)
@@ -581,6 +652,7 @@ function App() {
       setNewIssueFile('')
       setNewIssueCategory('snag')
       setAppError('')
+      await loadQueue()
       await refreshSyncStatus()
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Unable to add issue.')
@@ -617,6 +689,7 @@ function App() {
       setNewProjectPath('')
       setNewProjectBranch('main')
       setAppError('')
+      await loadQueue()
       await refreshSyncStatus()
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Unable to add project.')
@@ -661,6 +734,7 @@ function App() {
         ),
       )
       setAppError('')
+      await loadQueue()
       await refreshSyncStatus()
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Unable to save project.')
@@ -696,6 +770,7 @@ function App() {
         return nextProjects
       })
       setAppError('')
+      await loadQueue()
       await refreshSyncStatus()
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'Unable to update project archive state.')
@@ -716,6 +791,7 @@ function App() {
 
     setProjects(projectsPayload.projects)
     setIssues(issuesPayload.issues)
+    await loadQueue()
     setSelectedIssueId((currentIssueId) => {
       if (issuesPayload.issues.some((issue) => issue.id === currentIssueId)) {
         return currentIssueId
@@ -1097,15 +1173,50 @@ function App() {
       <section className="issue-pane" aria-label="Issues">
         <header className="pane-header">
           <div>
-            <p className="eyebrow">{selectedProject?.branch ?? 'Loading'}</p>
-            <h2>{selectedProject?.name ?? 'Projects'}</h2>
+            <p className="eyebrow">
+              {paneMode === 'project'
+                ? selectedProject?.branch ?? 'Loading'
+                : paneMode === 'codex'
+                  ? `${queueCounts.codexInProgress} in progress`
+                  : `${queueCounts.userSnags} snags`}
+            </p>
+            <h2>
+              {paneMode === 'project'
+                ? selectedProject?.name ?? 'Projects'
+                : paneMode === 'codex'
+                  ? 'Codex Queue'
+                  : 'User Added'}
+            </h2>
           </div>
           <div className="header-tools">
+            <div className="view-switcher" aria-label="Issue views">
+              <button
+                className={paneMode === 'project' ? 'active' : ''}
+                onClick={() => setPaneMode('project')}
+                type="button"
+              >
+                Project
+              </button>
+              <button
+                className={paneMode === 'codex' ? 'active' : ''}
+                onClick={() => setPaneMode('codex')}
+                type="button"
+              >
+                Codex {queueCounts.codex}
+              </button>
+              <button
+                className={paneMode === 'user' ? 'active' : ''}
+                onClick={() => setPaneMode('user')}
+                type="button"
+              >
+                User added {queueCounts.user}
+              </button>
+            </div>
             <label className="search-field">
               <span>Search issues</span>
               <input
                 aria-label="Search issues"
-                disabled={!selectedProject}
+                disabled={paneMode === 'project' && !selectedProject}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search title, file, status..."
                 type="search"
@@ -1114,14 +1225,15 @@ function App() {
             </label>
             <div className="codex-state">
               <span className="blue-dot"></span>
-              Codex is watching this project
+              {paneMode === 'project' ? 'Codex is watching this project' : 'Queue spans active projects'}
             </div>
           </div>
         </header>
 
         {appError ? <div className="error-banner">{appError}</div> : null}
 
-        <form className="quick-add" onSubmit={addIssue}>
+        {paneMode === 'project' ? (
+          <form className="quick-add" onSubmit={addIssue}>
           <input
             aria-label="Issue name"
             disabled={!selectedProject}
@@ -1151,7 +1263,8 @@ function App() {
           <button disabled={!selectedProject} type="submit" title="Add issue">
             +
           </button>
-        </form>
+          </form>
+        ) : null}
 
         <div className="issue-filters" aria-label="Issue filters">
           <label>
@@ -1182,49 +1295,79 @@ function App() {
               ))}
             </select>
           </label>
-          <label>
-            <span>Source</span>
-            <select
-              onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}
-              value={sourceFilter}
-            >
-              <option value="all">All</option>
-              <option value="Codex">Codex</option>
-              <option value="User">User</option>
-            </select>
-          </label>
-          <label className="hide-fixed-toggle">
-            <input
-              checked={hideFixed}
-              onChange={(event) => setHideFixed(event.target.checked)}
-              type="checkbox"
-            />
-            <span>Hide fixed</span>
-          </label>
+          {paneMode === 'project' ? (
+            <>
+              <label>
+                <span>Source</span>
+                <select
+                  onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}
+                  value={sourceFilter}
+                >
+                  <option value="all">All</option>
+                  <option value="Codex">Codex</option>
+                  <option value="User">User</option>
+                </select>
+              </label>
+              <label className="hide-fixed-toggle">
+                <input
+                  checked={hideFixed}
+                  onChange={(event) => setHideFixed(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>Hide fixed</span>
+              </label>
+            </>
+          ) : null}
         </div>
 
         <div className="issue-list">
-          {filteredIssues.map((issue) => (
-            <button
-              className={`issue-row ${issue.status} ${issue.id === selectedIssue?.id ? 'selected' : ''}`}
-              key={issue.id}
-              onClick={() => setSelectedIssueId(issue.id)}
-              type="button"
-            >
-              <span className="status-glyph" aria-hidden="true"></span>
-              <span className="issue-time">{formatDate(issue.createdAt)}</span>
-              <span className="issue-title">{issue.title}</span>
-              <span className={`category-pill ${issue.category}`}>
-                {categoryLabels[issue.category]}
-              </span>
-              <span className="issue-file">{issue.file ?? 'Project note'}</span>
-              <span className="issue-source">{issue.source}</span>
-            </button>
+          {(paneMode === 'project' ? filteredIssues : filteredQueueIssues).map((issue) => (
+            paneMode === 'project' ? (
+              <button
+                className={`issue-row ${issue.status} ${issue.id === selectedIssue?.id ? 'selected' : ''}`}
+                key={issue.id}
+                onClick={() => setSelectedIssueId(issue.id)}
+                type="button"
+              >
+                <span className="status-glyph" aria-hidden="true"></span>
+                <span className="issue-time">{formatDate(issue.createdAt)}</span>
+                <span className="issue-title">{issue.title}</span>
+                <span className={`category-pill ${issue.category}`}>
+                  {categoryLabels[issue.category]}
+                </span>
+                <span className="issue-file">{issue.file ?? 'Project note'}</span>
+                <span className="issue-source">{issue.source}</span>
+              </button>
+            ) : (
+              <button
+                className={`issue-row queue-row ${issue.status} ${issue.id === selectedIssue?.id ? 'selected' : ''}`}
+                key={issue.id}
+                onClick={() => openQueueIssue(issue as QueueIssue)}
+                type="button"
+              >
+                <span className="status-glyph" aria-hidden="true"></span>
+                <span className="issue-time">{formatDate(issue.createdAt)}</span>
+                <span className="issue-title">{issue.title}</span>
+                <span className={`category-pill ${issue.category}`}>
+                  {categoryLabels[issue.category]}
+                </span>
+                <span className="issue-file">{(issue as QueueIssue).projectName}</span>
+                <span className="issue-source">{issue.status === 'in-progress' ? 'Active' : issue.source}</span>
+              </button>
+            )
           ))}
-          {!isLoading && filteredIssues.length === 0 ? (
+          {!isLoading && (paneMode === 'project' ? filteredIssues : filteredQueueIssues).length === 0 ? (
             <div className="empty-state">
-              <p>{issues.length ? 'No issues match these filters.' : 'No issues in this project yet.'}</p>
-              {issues.length ? (
+              <p>
+                {paneMode === 'project'
+                  ? issues.length
+                    ? 'No issues match these filters.'
+                    : 'No issues in this project yet.'
+                  : paneMode === 'codex'
+                    ? 'No Codex-added queue items match these filters.'
+                    : 'No user-added queue items match these filters.'}
+              </p>
+              {(paneMode === 'project' ? issues.length : queueIssues.length) ? (
                 <button
                   onClick={() => {
                     setSearchQuery('')
