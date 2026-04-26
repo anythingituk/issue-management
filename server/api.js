@@ -1013,6 +1013,18 @@ async function aiConnect(response, request) {
   })
 }
 
+function aiDisconnect(response) {
+  const nextConfig = readAppConfig()
+  delete nextConfig.openaiApiKey
+  delete nextConfig.openaiModel
+  writeAppConfig(nextConfig)
+
+  sendJson(response, 200, {
+    connected: Boolean(process.env.OPENAI_API_KEY),
+    model: process.env.OPENAI_MODEL ?? 'gpt-5-mini',
+  })
+}
+
 function extractResponseText(payload) {
   if (typeof payload.output_text === 'string') {
     return payload.output_text.trim()
@@ -1038,6 +1050,13 @@ function extractResponseText(payload) {
 
   collectText(payload.output)
   return chunks.join('').trim()
+}
+
+function cleanAiJson(text) {
+  return text
+    .replace(/^```(?:json)?/i, '')
+    .replace(/```$/i, '')
+    .trim()
 }
 
 async function aiSuggestTitle(response, request) {
@@ -1114,6 +1133,100 @@ async function aiSuggestTitle(response, request) {
   sendJson(response, 200, { title: title.split(/\r?\n/)[0].slice(0, 80) })
 }
 
+async function aiAssistIssue(response, request) {
+  const config = readAppConfig()
+  const apiKey = config.openaiApiKey || process.env.OPENAI_API_KEY
+
+  if (!apiKey) {
+    sendError(response, 401, 'Connect OpenAI before using AI assistance.')
+    return
+  }
+
+  const body = await readRequestJson(request)
+  const title = String(body.title ?? '').trim()
+  const description = String(body.description ?? '').trim()
+  const category = String(body.category ?? '').trim()
+  const priority = String(body.priority ?? '').trim()
+  const file = String(body.file ?? '').trim()
+
+  if (!title && !description) {
+    sendError(response, 400, 'Enter a title or description before using AI Assist.')
+    return
+  }
+
+  const model = config.openaiModel ?? process.env.OPENAI_MODEL ?? 'gpt-5-mini'
+  const openAiResponse = await fetch('https://api.openai.com/v1/responses', {
+    body: JSON.stringify({
+      instructions: [
+        'You improve draft issue tracker entries for a developer workflow.',
+        'Return only valid JSON.',
+        'Use concise, practical language.',
+        `Allowed categories: ${Object.keys(categoryLabels).join(', ')}.`,
+        `Allowed priorities: ${Object.keys(priorityLabels).join(', ')}.`,
+        'Choose priority soon only for blocking, urgent, or clearly near-term work; otherwise choose later.',
+        'The detail should preserve the user intent and clarify expected behaviour.',
+      ].join(' '),
+      input: [
+        `Current title: ${title || '(empty)'}`,
+        `Current description: ${description || '(empty)'}`,
+        `Current category: ${category || '(empty)'}`,
+        `Current priority: ${priority || '(empty)'}`,
+        `Current file: ${file || '(empty)'}`,
+        'Return this exact JSON shape: {"title":"...","detail":"...","category":"snag","priority":"later"}',
+      ].join('\n'),
+      model,
+      max_output_tokens: 500,
+      reasoning: { effort: 'minimal' },
+      store: false,
+      text: {
+        format: {
+          type: 'text',
+        },
+      },
+    }),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    method: 'POST',
+  })
+
+  if (!openAiResponse.ok) {
+    const errorPayload = await openAiResponse.json().catch(() => ({}))
+    sendError(
+      response,
+      openAiResponse.status,
+      errorPayload.error?.message ?? 'OpenAI issue assistance failed.',
+    )
+    return
+  }
+
+  const payload = await openAiResponse.json()
+  const outputText = extractResponseText(payload)
+  if (!outputText) {
+    sendError(response, 502, payload.error?.message ?? 'OpenAI returned no issue assistance text.')
+    return
+  }
+
+  let suggestion
+  try {
+    suggestion = JSON.parse(cleanAiJson(outputText))
+  } catch {
+    sendError(response, 502, 'OpenAI returned issue assistance in an unexpected format.')
+    return
+  }
+
+  const nextCategory = categoryLabels[suggestion.category] ? suggestion.category : category || 'snag'
+  const nextPriority = priorityLabels[suggestion.priority] ? suggestion.priority : priority || 'later'
+
+  sendJson(response, 200, {
+    title: String(suggestion.title ?? title).trim().slice(0, 120),
+    detail: String(suggestion.detail ?? description).trim(),
+    category: nextCategory,
+    priority: nextPriority,
+  })
+}
+
 async function route(request, response) {
   const url = new URL(request.url ?? '/', `http://${request.headers.host}`)
 
@@ -1167,8 +1280,18 @@ async function route(request, response) {
     return
   }
 
+  if (request.method === 'POST' && url.pathname === '/api/ai/disconnect') {
+    aiDisconnect(response)
+    return
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/ai/suggest-title') {
     await aiSuggestTitle(response, request)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/ai/assist-issue') {
+    await aiAssistIssue(response, request)
     return
   }
 

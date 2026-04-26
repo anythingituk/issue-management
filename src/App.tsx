@@ -109,6 +109,13 @@ type AiState = {
   model?: string
 }
 
+type AiIssueSuggestion = {
+  title: string
+  detail: string
+  category: IssueCategory
+  priority: IssuePriority
+}
+
 type SetupState = {
   configured: boolean
   dataDir: string
@@ -254,6 +261,7 @@ function App() {
   const [openAiApiKey, setOpenAiApiKey] = useState('')
   const [isConnectingAi, setIsConnectingAi] = useState(false)
   const [isSuggestingTitle, setIsSuggestingTitle] = useState(false)
+  const [isAssistingIssue, setIsAssistingIssue] = useState(false)
   const [projectSidebarWidth, setProjectSidebarWidth] = useState(() =>
     readStoredWidth(
       'codex-companion-project-sidebar-width',
@@ -1368,6 +1376,36 @@ function App() {
     }
   }
 
+  async function disconnectOpenAi() {
+    const confirmed = window.confirm(
+      'Disconnect ChatGPT from Codex Companion on this machine? This removes the stored OpenAI API key.',
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      const payload = await apiJson<AiState>('/api/ai/disconnect', {
+        method: 'POST',
+      })
+      setAiState(payload)
+      showToast({
+        message: payload.connected
+          ? 'Stored API key removed. An environment OpenAI key is still available.'
+          : 'OpenAI API key removed from this machine.',
+        title: 'ChatGPT disconnected',
+        tone: 'success',
+      })
+    } catch (error) {
+      showToast({
+        message: error instanceof Error ? error.message : 'Unable to disconnect ChatGPT.',
+        title: 'Disconnect failed',
+        tone: 'warning',
+      })
+    }
+  }
+
   async function suggestIssueTitle() {
     const description = newIssueDetail.trim()
 
@@ -1403,6 +1441,51 @@ function App() {
       })
     } finally {
       setIsSuggestingTitle(false)
+    }
+  }
+
+  async function assistNewIssue() {
+    const title = newIssueTitle.trim()
+    const description = newIssueDetail.trim()
+
+    if (!title && !description) {
+      showToast({
+        message: 'Enter a title or description first so AI has something to improve.',
+        title: 'Issue text needed',
+        tone: 'warning',
+      })
+      return
+    }
+
+    setIsAssistingIssue(true)
+    try {
+      const payload = await apiJson<AiIssueSuggestion>('/api/ai/assist-issue', {
+        body: JSON.stringify({
+          category: newIssueCategory,
+          description,
+          file: newIssueFile.trim(),
+          priority: newIssuePriority,
+          title,
+        }),
+        method: 'POST',
+      })
+      setNewIssueTitle(payload.title)
+      setNewIssueDetail(payload.detail)
+      setNewIssueCategory(payload.category)
+      setNewIssuePriority(payload.priority)
+      showToast({
+        message: 'Improved the issue title, description, category, and priority.',
+        title: 'AI Assist applied',
+        tone: 'success',
+      })
+    } catch (error) {
+      showToast({
+        message: error instanceof Error ? error.message : 'Unable to assist with this issue.',
+        title: 'AI Assist failed',
+        tone: 'warning',
+      })
+    } finally {
+      setIsAssistingIssue(false)
     }
   }
 
@@ -1791,6 +1874,9 @@ function App() {
                 ChatGPT is ready for issue writing assistance.
                 {aiState.model ? <small>{aiState.model}</small> : null}
               </p>
+              <button className="ai-disconnect-link" onClick={disconnectOpenAi} type="button">
+                Disconnect
+              </button>
             </div>
           ) : (
             <form className="ai-connect-form" onSubmit={connectOpenAi}>
@@ -2137,9 +2223,25 @@ function App() {
               rows={3}
               value={newIssueDetail}
             />
-            <button className="quick-save-button" disabled={!selectedProject} type="submit">
-              Save
-            </button>
+            <div className="quick-form-actions">
+              <button
+                className="quick-ai-assist-button"
+                disabled={
+                  !selectedProject ||
+                  !aiState.connected ||
+                  (!newIssueTitle.trim() && !newIssueDetail.trim()) ||
+                  isAssistingIssue
+                }
+                onClick={assistNewIssue}
+                title={aiState.connected ? 'Improve the draft issue' : 'Connect ChatGPT to use AI Assist'}
+                type="button"
+              >
+                {isAssistingIssue ? 'Assisting' : 'AI Assist'}
+              </button>
+              <button className="quick-save-button" disabled={!selectedProject} type="submit">
+                Save
+              </button>
+            </div>
           </form>
         ) : null}
 

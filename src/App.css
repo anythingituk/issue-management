@@ -616,6 +616,22 @@
   white-space: nowrap;
 }
 
+.ai-disconnect-link {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ai-disconnect-link:hover {
+  color: var(--companion-cyan);
+}
+
 .ai-connect-form input {
   min-width: 0;
   height: 32px;
@@ -1260,12 +1276,24 @@ button {
   line-height: 1;
 }
 
-.quick-save-button {
+.quick-form-actions {
   grid-column: 1 / -1;
-  justify-self: end;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.quick-ai-assist-button,
+.quick-save-button {
   min-width: 120px;
   padding: 0 18px;
   font-weight: 700;
+}
+
+.quick-ai-assist-button {
+  border-color: rgba(46, 234, 242, 0.4);
+  background: rgba(46, 234, 242, 0.08);
+  color: var(--companion-cyan);
 }
 
 .issue-filters {
