@@ -1447,17 +1447,21 @@ button {
   resize: vertical;
 }
 
-.title-field input {
+.title-field textarea {
   border-color: transparent;
   background: transparent;
   color: var(--text-strong);
   font-size: 22px;
   font-weight: 650;
   line-height: 1.15;
+  min-height: 52px;
   padding: 0;
+  resize: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
-.title-field input:focus-visible {
+.title-field textarea:focus-visible {
   border-color: var(--focus);
   background: var(--control);
   padding: 0 8px;

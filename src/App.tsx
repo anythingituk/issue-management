@@ -1968,8 +1968,9 @@ function App() {
                 <p className="eyebrow">{formatDate(selectedIssue.createdAt)}</p>
                 <label className="detail-field title-field">
                   <span>Issue name</span>
-                  <input
+                  <textarea
                     onChange={(event) => setEditTitle(event.target.value)}
+                    rows={2}
                     value={editTitle}
                   />
                 </label>
