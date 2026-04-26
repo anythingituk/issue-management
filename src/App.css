@@ -160,11 +160,17 @@
 }
 
 .branch-eyebrow {
-  color: #2eeaf2;
+  color: var(--companion-cyan);
 }
 
 .brand-title {
-  color: #c65dff;
+  color: var(--companion-purple);
+}
+
+.sync-panel > .section-label,
+.sync-history-card h3,
+.codex-projects-panel .section-label {
+  color: var(--companion-cyan);
 }
 
 .brand-block h1,
