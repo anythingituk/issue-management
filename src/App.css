@@ -265,6 +265,16 @@
   gap: 8px;
 }
 
+.path-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.path-input-row.with-browse {
+  grid-template-columns: minmax(0, 1fr) 76px;
+}
+
 .add-project-form button,
 .edit-project-form button {
   border: 1px solid var(--border);

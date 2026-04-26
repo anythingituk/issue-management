@@ -39,11 +39,11 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setName(appName)
-  ipcMain.handle('codex-companion:choose-issue-folder', async () => {
+  ipcMain.handle('codex-companion:choose-folder', async (_event, options = {}) => {
     const result = await dialog.showOpenDialog({
-      buttonLabel: 'Use folder',
+      buttonLabel: options.buttonLabel || 'Use folder',
       properties: ['openDirectory'],
-      title: 'Choose Codex Companion issue data folder',
+      title: options.title || 'Choose folder',
     })
 
     return result.canceled ? '' : result.filePaths[0] ?? ''

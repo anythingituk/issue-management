@@ -51,6 +51,7 @@ type SetupState = {
 declare global {
   interface Window {
     codexCompanion?: {
+      chooseFolder?: (options?: { buttonLabel?: string; title?: string }) => Promise<string>
       chooseIssueFolder: () => Promise<string>
     }
   }
@@ -143,7 +144,7 @@ function App() {
   const [setupRemoteUrl, setSetupRemoteUrl] = useState('')
   const [setupError, setSetupError] = useState('')
   const [isSettingUp, setIsSettingUp] = useState(false)
-  const [canChooseSetupFolder, setCanChooseSetupFolder] = useState(false)
+  const [canChooseFolder, setCanChooseFolder] = useState(false)
   const [syncState, setSyncState] = useState<SyncState>({
     tone: 'ready',
     message: 'Checking GitHub sync...',
@@ -163,7 +164,7 @@ function App() {
 
   useEffect(() => {
     let ignore = false
-    setCanChooseSetupFolder(Boolean(window.codexCompanion?.chooseIssueFolder))
+    setCanChooseFolder(Boolean(window.codexCompanion?.chooseFolder || window.codexCompanion?.chooseIssueFolder))
 
     async function loadInitialState() {
       try {
@@ -362,19 +363,51 @@ function App() {
     }
   }
 
-  async function chooseSetupFolder() {
-    if (!window.codexCompanion?.chooseIssueFolder) {
-      return
-    }
-
+  async function chooseFolder(options: { buttonLabel?: string; title?: string }) {
     try {
-      const selectedPath = await window.codexCompanion.chooseIssueFolder()
-      if (selectedPath) {
-        setSetupPath(selectedPath)
-        setSetupError('')
-      }
+      return (
+        (await window.codexCompanion?.chooseFolder?.(options)) ??
+        (await window.codexCompanion?.chooseIssueFolder?.()) ??
+        ''
+      )
     } catch (error) {
-      setSetupError(error instanceof Error ? error.message : 'Unable to choose folder.')
+      const message = error instanceof Error ? error.message : 'Unable to choose folder.'
+      setSetupError(message)
+      setAppError(message)
+      return ''
+    }
+  }
+
+  async function chooseSetupFolder() {
+    const selectedPath = await chooseFolder({
+      buttonLabel: 'Use folder',
+      title: 'Choose Codex Companion issue data folder',
+    })
+    if (selectedPath) {
+      setSetupPath(selectedPath)
+      setSetupError('')
+    }
+  }
+
+  async function chooseNewProjectFolder() {
+    const selectedPath = await chooseFolder({
+      buttonLabel: 'Use project',
+      title: 'Choose Codex project folder',
+    })
+    if (selectedPath) {
+      setNewProjectPath(selectedPath)
+      setAppError('')
+    }
+  }
+
+  async function chooseEditProjectFolder() {
+    const selectedPath = await chooseFolder({
+      buttonLabel: 'Use project',
+      title: 'Choose Codex project folder',
+    })
+    if (selectedPath) {
+      setEditProjectPath(selectedPath)
+      setAppError('')
     }
   }
 
@@ -703,14 +736,14 @@ function App() {
                 <h2>Existing folder</h2>
                 <p>Connect a folder that already contains issue JSON files.</p>
               </div>
-              <div className={`setup-form-row ${canChooseSetupFolder ? 'with-browse' : ''}`}>
+              <div className={`setup-form-row ${canChooseFolder ? 'with-browse' : ''}`}>
                 <input
                   aria-label="Existing issue data folder"
                   onChange={(event) => setSetupPath(event.target.value)}
                   placeholder="/mnt/c/dev/issue-management"
                   value={setupPath}
                 />
-                {canChooseSetupFolder ? (
+                {canChooseFolder ? (
                   <button
                     disabled={isLoading || isSettingUp}
                     onClick={chooseSetupFolder}
@@ -800,12 +833,24 @@ function App() {
               placeholder="Project name"
               value={newProjectName}
             />
-            <input
-              aria-label="Project path"
-              onChange={(event) => setNewProjectPath(event.target.value)}
-              placeholder="/mnt/c/dev/project"
-              value={newProjectPath}
-            />
+            <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
+              <input
+                aria-label="Project path"
+                onChange={(event) => setNewProjectPath(event.target.value)}
+                placeholder="/mnt/c/dev/project"
+                value={newProjectPath}
+              />
+              {canChooseFolder ? (
+                <button
+                  disabled={isAddingProject}
+                  onClick={chooseNewProjectFolder}
+                  type="button"
+                  title="Browse for project folder"
+                >
+                  Browse
+                </button>
+              ) : null}
+            </div>
             <div className="add-project-row">
               <input
                 aria-label="Project branch"
@@ -826,11 +871,23 @@ function App() {
                 onChange={(event) => setEditProjectName(event.target.value)}
                 value={editProjectName}
               />
-              <input
-                aria-label="Selected project path"
-                onChange={(event) => setEditProjectPath(event.target.value)}
-                value={editProjectPath}
-              />
+              <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
+                <input
+                  aria-label="Selected project path"
+                  onChange={(event) => setEditProjectPath(event.target.value)}
+                  value={editProjectPath}
+                />
+                {canChooseFolder ? (
+                  <button
+                    disabled={isSavingProject}
+                    onClick={chooseEditProjectFolder}
+                    type="button"
+                    title="Browse for project folder"
+                  >
+                    Browse
+                  </button>
+                ) : null}
+              </div>
               <div className="add-project-row">
                 <input
                   aria-label="Selected project branch"
