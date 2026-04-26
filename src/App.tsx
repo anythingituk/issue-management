@@ -123,7 +123,7 @@ function App() {
   const [issues, setIssues] = useState<Issue[]>([])
   const [queueIssues, setQueueIssues] = useState<QueueIssue[]>([])
   const [selectedIssueId, setSelectedIssueId] = useState('')
-  const [paneMode, setPaneMode] = useState<'project' | 'codex' | 'user'>('project')
+  const [paneMode, setPaneMode] = useState<'workbench' | 'project' | 'codex' | 'user'>('workbench')
   const [newIssueTitle, setNewIssueTitle] = useState('')
   const [newIssueFile, setNewIssueFile] = useState('')
   const [newIssueCategory, setNewIssueCategory] = useState<IssueCategory>('snag')
@@ -350,11 +350,21 @@ function App() {
     }),
     [queueIssues],
   )
+  const userQueueIssues = useMemo(
+    () => queueIssues.filter((issue) => issue.source === 'User').slice(0, 8),
+    [queueIssues],
+  )
+  const codexQueueIssues = useMemo(
+    () => queueIssues.filter((issue) => issue.source === 'Codex').slice(0, 8),
+    [queueIssues],
+  )
 
   const selectedIssue =
     filteredIssues.find((issue) => issue.id === selectedIssueId) ??
     selectedQueueIssue ??
     filteredIssues[0]
+  const detailProject =
+    projects.find((project) => project.id === selectedIssue?.projectId) ?? selectedProject
 
   useEffect(() => {
     if (!selectedIssue) {
@@ -536,7 +546,6 @@ function App() {
   }
 
   async function openQueueIssue(issue: QueueIssue) {
-    setPaneMode('project')
     setSelectedProjectId(issue.projectId)
     setSelectedIssueId(issue.id)
   }
@@ -1174,14 +1183,18 @@ function App() {
         <header className="pane-header">
           <div>
             <p className="eyebrow">
-              {paneMode === 'project'
+              {paneMode === 'workbench'
+                ? `${queueCounts.user} user added · ${queueCounts.codex} Codex`
+                : paneMode === 'project'
                 ? selectedProject?.branch ?? 'Loading'
                 : paneMode === 'codex'
                   ? `${queueCounts.codexInProgress} in progress`
                   : `${queueCounts.userSnags} snags`}
             </p>
             <h2>
-              {paneMode === 'project'
+              {paneMode === 'workbench'
+                ? 'Workbench'
+                : paneMode === 'project'
                 ? selectedProject?.name ?? 'Projects'
                 : paneMode === 'codex'
                   ? 'Codex Queue'
@@ -1190,6 +1203,13 @@ function App() {
           </div>
           <div className="header-tools">
             <div className="view-switcher" aria-label="Issue views">
+              <button
+                className={paneMode === 'workbench' ? 'active' : ''}
+                onClick={() => setPaneMode('workbench')}
+                type="button"
+              >
+                Workbench
+              </button>
               <button
                 className={paneMode === 'project' ? 'active' : ''}
                 onClick={() => setPaneMode('project')}
@@ -1232,7 +1252,86 @@ function App() {
 
         {appError ? <div className="error-banner">{appError}</div> : null}
 
-        {paneMode === 'project' ? (
+        {paneMode === 'workbench' ? (
+          <div className="workbench-layout">
+            <section className="queue-card">
+              <div className="queue-card-header">
+                <div>
+                  <h3>User Added</h3>
+                  <p>Snags, tweaks, and future ideas.</p>
+                </div>
+                <span>{queueCounts.user}</span>
+              </div>
+              <div className="queue-card-list">
+                {userQueueIssues.map((issue) => (
+                  <button
+                    className={`queue-item ${issue.status} ${issue.id === selectedIssue?.id ? 'selected' : ''}`}
+                    key={issue.id}
+                    onClick={() => openQueueIssue(issue)}
+                    type="button"
+                  >
+                    <span className="queue-check" aria-hidden="true"></span>
+                    <span className="queue-main">
+                      <strong>{issue.title}</strong>
+                      <code>{issue.file ?? issue.projectName}</code>
+                    </span>
+                    <span className={`category-pill ${issue.category}`}>{categoryLabels[issue.category]}</span>
+                    <span className="queue-age">{formatDate(issue.createdAt)}</span>
+                  </button>
+                ))}
+                {userQueueIssues.length === 0 ? (
+                  <div className="queue-empty">No user-added items are waiting.</div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="queue-card">
+              <div className="queue-card-header">
+                <div>
+                  <h3>Codex Queue</h3>
+                  <p>Work items for Codex to pick up.</p>
+                </div>
+                <span>{queueCounts.codex}</span>
+              </div>
+              <div className="queue-card-list">
+                {codexQueueIssues.map((issue) => (
+                  <button
+                    className={`queue-item ${issue.status} ${issue.id === selectedIssue?.id ? 'selected' : ''}`}
+                    key={issue.id}
+                    onClick={() => openQueueIssue(issue)}
+                    type="button"
+                  >
+                    <span className="queue-check" aria-hidden="true"></span>
+                    <span className="queue-main">
+                      <strong>{issue.title}</strong>
+                      <code>{issue.file ?? issue.projectName}</code>
+                    </span>
+                    <span className={`category-pill ${issue.category}`}>{categoryLabels[issue.category]}</span>
+                    <span className="queue-age">{statusLabels[issue.status]}</span>
+                  </button>
+                ))}
+                {codexQueueIssues.length === 0 ? (
+                  <div className="queue-empty">No Codex queue items are waiting.</div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="sync-history-card">
+              <div className="queue-card-header">
+                <div>
+                  <h3>GitHub Sync History</h3>
+                  <p>{syncState.remoteUrl || gitRemoteUrl || 'No remote connected'}</p>
+                </div>
+                <span>{syncState.tone === 'error' ? 'Action needed' : 'Ready'}</span>
+              </div>
+              <div className="sync-history-grid">
+                <span>Now</span>
+                <span>{syncState.message}</span>
+                <span>{syncState.timestamp ? formatTime(syncState.timestamp) : 'Pending'}</span>
+              </div>
+            </section>
+          </div>
+        ) : paneMode === 'project' ? (
           <form className="quick-add" onSubmit={addIssue}>
           <input
             aria-label="Issue name"
@@ -1266,7 +1365,8 @@ function App() {
           </form>
         ) : null}
 
-        <div className="issue-filters" aria-label="Issue filters">
+        {paneMode !== 'workbench' ? (
+          <div className="issue-filters" aria-label="Issue filters">
           <label>
             <span>Status</span>
             <select
@@ -1318,9 +1418,11 @@ function App() {
               </label>
             </>
           ) : null}
-        </div>
+          </div>
+        ) : null}
 
-        <div className="issue-list">
+        {paneMode !== 'workbench' ? (
+          <div className="issue-list">
           {(paneMode === 'project' ? filteredIssues : filteredQueueIssues).map((issue) => (
             paneMode === 'project' ? (
               <button
@@ -1383,11 +1485,12 @@ function App() {
               ) : null}
             </div>
           ) : null}
-        </div>
+          </div>
+        ) : null}
       </section>
 
       <aside className="detail-panel" aria-label="Issue details">
-        {selectedIssue && selectedProject ? (
+        {selectedIssue && detailProject ? (
           <>
             <form className="detail-form" onSubmit={saveIssueDetails}>
               <div className="detail-header">
@@ -1406,7 +1509,7 @@ function App() {
                 <span>Location</span>
                 <input
                   onChange={(event) => setEditFile(event.target.value)}
-                  placeholder={selectedProject.path}
+                  placeholder={detailProject.path}
                   value={editFile}
                 />
               </label>
