@@ -1100,15 +1100,15 @@ button {
 
 .quick-add {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(140px, 230px) 120px 38px;
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 230px) 120px 128px 38px;
   gap: 8px;
   margin-bottom: 14px;
 }
 
 .quick-add input,
-.quick-add select {
+.quick-add select,
+.quick-add textarea {
   min-width: 0;
-  height: 38px;
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -1117,8 +1117,22 @@ button {
   font: inherit;
 }
 
+.quick-add input,
+.quick-add select {
+  height: 38px;
+}
+
+.quick-add textarea {
+  grid-column: 1 / -2;
+  min-height: 74px;
+  padding: 9px 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
 .quick-add input:disabled,
 .quick-add select:disabled,
+.quick-add textarea:disabled,
 .quick-add button:disabled,
 .search-field input:disabled {
   cursor: not-allowed;
@@ -1126,7 +1140,9 @@ button {
 }
 
 .quick-add button {
+  min-height: 38px;
   font-size: 22px;
+  grid-row: span 2;
   line-height: 1;
 }
 
@@ -1408,7 +1424,7 @@ button {
 
 .detail-context {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 8px;
   padding: 10px;
   border: 1px solid var(--border);
@@ -1535,6 +1551,12 @@ button {
   opacity: 0.65;
 }
 
+.ask-codex-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, auto);
+  gap: 8px;
+}
+
 .ask-codex-button {
   min-height: 38px;
   border: 1px solid rgba(46, 234, 242, 0.52);
@@ -1543,6 +1565,12 @@ button {
   color: var(--companion-cyan);
   cursor: pointer;
   font-weight: 750;
+}
+
+.ask-codex-button.secondary {
+  border-color: var(--border);
+  background: var(--control);
+  color: var(--text-strong);
 }
 
 .ask-codex-button:hover {

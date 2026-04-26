@@ -37,6 +37,11 @@ const decisionLabels = {
   ignored: 'Ignored',
 }
 
+const priorityLabels = {
+  soon: 'Action soon',
+  later: 'Action later',
+}
+
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, 'utf8'))
 }
@@ -155,6 +160,7 @@ async function readProjectIssues(project) {
       ? issueFile.issues.map((issue) => ({
           ...issue,
           decision: issue.decision && decisionLabels[issue.decision] ? issue.decision : 'waiting',
+          priority: issue.priority && priorityLabels[issue.priority] ? issue.priority : 'later',
         }))
       : []
   } catch (error) {
@@ -819,6 +825,14 @@ async function getQueue(response) {
       return leftWeight - rightWeight
     }
 
+    const priorityWeight = { soon: 0, later: 1 }
+    const leftPriority = priorityWeight[left.priority] ?? 1
+    const rightPriority = priorityWeight[right.priority] ?? 1
+
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority
+    }
+
     return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
   })
 
@@ -843,6 +857,7 @@ async function addIssue(response, request) {
 
   const issues = await readProjectIssues(project)
   const category = body.category && categoryLabels[body.category] ? body.category : 'snag'
+  const priority = body.priority && priorityLabels[body.priority] ? body.priority : 'later'
   const issue = {
     id: `iss-${Date.now()}`,
     projectId: project.id,
@@ -851,6 +866,7 @@ async function addIssue(response, request) {
     file: String(body.file ?? '').trim() || undefined,
     status: body.status && statusLabels[body.status] ? body.status : 'open',
     decision: body.decision && decisionLabels[body.decision] ? body.decision : 'waiting',
+    priority,
     category,
     source: body.source === 'Codex' ? 'Codex' : 'User',
     detail:
@@ -886,11 +902,15 @@ async function patchIssue(response, request, issueId) {
       body.status && statusLabels[body.status] ? body.status : currentIssue.status
     const nextDecision =
       body.decision && decisionLabels[body.decision] ? body.decision : currentIssue.decision ?? 'waiting'
+    const nextPriority =
+      body.priority && priorityLabels[body.priority] ? body.priority : currentIssue.priority ?? 'later'
     const activity = Array.isArray(currentIssue.activity) ? currentIssue.activity : []
     const statusChanged = nextStatus !== currentIssue.status
     const decisionChanged = nextDecision !== (currentIssue.decision ?? 'waiting')
+    const priorityChanged = nextPriority !== (currentIssue.priority ?? 'later')
     const nextActivity = [
       ...(decisionChanged ? [`Codex decision changed to ${decisionLabels[nextDecision]}.`] : []),
+      ...(priorityChanged ? [`Priority changed to ${priorityLabels[nextPriority]}.`] : []),
       ...(statusChanged ? [`Status changed to ${statusLabels[nextStatus]}.`] : []),
       ...activity,
     ]
@@ -905,6 +925,7 @@ async function patchIssue(response, request, issueId) {
       ...currentIssue,
       status: nextStatus,
       decision: nextDecision,
+      priority: nextPriority,
       category:
         body.category === undefined || !categoryLabels[body.category]
           ? currentIssue.category

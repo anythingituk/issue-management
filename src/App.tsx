@@ -6,6 +6,7 @@ type IssueStatus = 'open' | 'in-progress' | 'fixed' | 'deferred'
 type IssueSource = 'Codex' | 'User'
 type IssueCategory = 'bug' | 'snag' | 'feature' | 'refactor' | 'docs' | 'testing' | 'question'
 type IssueDecision = 'approved' | 'waiting' | 'ignored'
+type IssuePriority = 'soon' | 'later'
 type StatusFilter = IssueStatus | 'all'
 type CategoryFilter = IssueCategory | 'all'
 type SourceFilter = IssueSource | 'all'
@@ -73,6 +74,7 @@ type Issue = {
   file?: string
   status: IssueStatus
   decision: IssueDecision
+  priority?: IssuePriority
   category: IssueCategory
   source: IssueSource
   detail: string
@@ -144,6 +146,11 @@ const decisionLabels: Record<IssueDecision, string> = {
   ignored: 'Ignore for now',
 }
 
+const priorityLabels: Record<IssuePriority, string> = {
+  soon: 'Action soon',
+  later: 'Action later',
+}
+
 const decisionGlyphs: Record<IssueDecision, string> = {
   approved: '✓',
   waiting: '○',
@@ -196,8 +203,10 @@ function App() {
   const [selectedIssueId, setSelectedIssueId] = useState('')
   const [paneMode, setPaneMode] = useState<'workbench' | 'project' | 'codex' | 'user'>('workbench')
   const [newIssueTitle, setNewIssueTitle] = useState('')
+  const [newIssueDetail, setNewIssueDetail] = useState('')
   const [newIssueFile, setNewIssueFile] = useState('')
   const [newIssueCategory, setNewIssueCategory] = useState<IssueCategory>('snag')
+  const [newIssuePriority, setNewIssuePriority] = useState<IssuePriority>('later')
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectPath, setNewProjectPath] = useState('')
   const [newProjectBranch, setNewProjectBranch] = useState('main')
@@ -863,17 +872,19 @@ function App() {
     }
   }
 
-  async function askCodexToWorkNow(issue: Issue) {
+  async function askCodexToWork(issue: Issue, priority: IssuePriority) {
     const previousIssues = issues
     const previousQueueIssues = queueIssues
+    const nextStatus: IssueStatus = priority === 'soon' ? 'in-progress' : 'open'
     const nextActivity = [
-      'User asked Codex to work on this now.',
+      `User asked Codex to ${priorityLabels[priority].toLowerCase()}.`,
       ...issue.activity,
     ]
     const optimisticIssue = {
       ...issue,
       decision: 'approved' as IssueDecision,
-      status: 'in-progress' as IssueStatus,
+      priority,
+      status: nextStatus,
       activity: nextActivity,
     }
 
@@ -891,7 +902,8 @@ function App() {
         body: JSON.stringify({
           activity: nextActivity,
           decision: 'approved',
-          status: 'in-progress',
+          priority,
+          status: nextStatus,
         }),
         method: 'PATCH',
       })
@@ -907,7 +919,10 @@ function App() {
       setPaneMode('codex')
       setAppError('')
       showToast({
-        message: 'Marked approved and in progress. The Codex issue check can now pick this up as actionable.',
+        message:
+          priority === 'soon'
+            ? 'Marked approved and in progress. Codex can pick this up as a near-term task.'
+            : 'Marked approved for later. Codex can defer this until higher-priority work clears.',
         title: 'Codex work request queued',
         tone: 'success',
       })
@@ -916,9 +931,9 @@ function App() {
     } catch (error) {
       setIssues(previousIssues)
       setQueueIssues(previousQueueIssues)
-      setAppError(error instanceof Error ? error.message : 'Unable to ask Codex to work now.')
+      setAppError(error instanceof Error ? error.message : 'Unable to ask Codex to work on this.')
       showToast({
-        message: error instanceof Error ? error.message : 'Unable to ask Codex to work now.',
+        message: error instanceof Error ? error.message : 'Unable to ask Codex to work on this.',
         title: 'Codex request failed',
         tone: 'warning',
       })
@@ -959,6 +974,7 @@ function App() {
           file: editFile.trim(),
           category: editCategory,
           detail: editDetail.trim(),
+          priority: selectedIssue.priority,
         }),
         method: 'PATCH',
       })
@@ -992,6 +1008,8 @@ function App() {
           title,
           file: newIssueFile.trim(),
           category: newIssueCategory,
+          detail: newIssueDetail.trim(),
+          priority: newIssuePriority,
           source: 'User',
         }),
         method: 'POST',
@@ -1000,8 +1018,10 @@ function App() {
       setIssues((currentIssues) => [payload.issue, ...currentIssues])
       setSelectedIssueId(payload.issue.id)
       setNewIssueTitle('')
+      setNewIssueDetail('')
       setNewIssueFile('')
       setNewIssueCategory('snag')
+      setNewIssuePriority('later')
       setAppError('')
       await loadQueue()
       await refreshSyncStatus()
@@ -1941,35 +1961,55 @@ function App() {
           </div>
         ) : paneMode === 'project' ? (
           <form className="quick-add" onSubmit={addIssue}>
-          <input
-            aria-label="Issue name"
-            disabled={!selectedProject}
-            onChange={(event) => setNewIssueTitle(event.target.value)}
-            placeholder="Add a snag, tweak, or future request"
-            value={newIssueTitle}
-          />
-          <input
-            aria-label="File path"
-            disabled={!selectedProject}
-            onChange={(event) => setNewIssueFile(event.target.value)}
-            placeholder="Optional file path"
-            value={newIssueFile}
-          />
-          <select
-            aria-label="Issue category"
-            disabled={!selectedProject}
-            onChange={(event) => setNewIssueCategory(event.target.value as IssueCategory)}
-            value={newIssueCategory}
-          >
-            {(Object.keys(categoryLabels) as IssueCategory[]).map((category) => (
-              <option key={category} value={category}>
-                {categoryLabels[category]}
-              </option>
-            ))}
-          </select>
-          <button disabled={!selectedProject} type="submit" title="Add issue">
-            +
-          </button>
+            <input
+              aria-label="Issue title"
+              disabled={!selectedProject}
+              onChange={(event) => setNewIssueTitle(event.target.value)}
+              placeholder="Short title"
+              value={newIssueTitle}
+            />
+            <input
+              aria-label="File path"
+              disabled={!selectedProject}
+              onChange={(event) => setNewIssueFile(event.target.value)}
+              placeholder="Optional file path"
+              value={newIssueFile}
+            />
+            <select
+              aria-label="Issue category"
+              disabled={!selectedProject}
+              onChange={(event) => setNewIssueCategory(event.target.value as IssueCategory)}
+              value={newIssueCategory}
+            >
+              {(Object.keys(categoryLabels) as IssueCategory[]).map((category) => (
+                <option key={category} value={category}>
+                  {categoryLabels[category]}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Issue priority"
+              disabled={!selectedProject}
+              onChange={(event) => setNewIssuePriority(event.target.value as IssuePriority)}
+              value={newIssuePriority}
+            >
+              {(Object.keys(priorityLabels) as IssuePriority[]).map((priority) => (
+                <option key={priority} value={priority}>
+                  {priorityLabels[priority]}
+                </option>
+              ))}
+            </select>
+            <textarea
+              aria-label="Issue description"
+              disabled={!selectedProject}
+              onChange={(event) => setNewIssueDetail(event.target.value)}
+              placeholder="Description, context, acceptance notes, or the longer request"
+              rows={3}
+              value={newIssueDetail}
+            />
+            <button disabled={!selectedProject} type="submit" title="Add issue">
+              +
+            </button>
           </form>
         ) : null}
 
@@ -2138,6 +2178,15 @@ function App() {
                 <span className={`status-pill ${selectedIssue.status}`}>{statusLabels[selectedIssue.status]}</span>
               </div>
 
+              <label className="detail-field">
+                <span>Description</span>
+                <textarea
+                  onChange={(event) => setEditDetail(event.target.value)}
+                  rows={5}
+                  value={editDetail}
+                />
+              </label>
+
               <div className="detail-context" aria-label="Issue context">
                 <div>
                   <span>Source</span>
@@ -2151,6 +2200,10 @@ function App() {
                   <span>Category</span>
                   <strong>{categoryLabels[selectedIssue.category]}</strong>
                 </div>
+                <div>
+                  <span>Priority</span>
+                  <strong>{priorityLabels[selectedIssue.priority ?? 'later']}</strong>
+                </div>
                 <code>{selectedIssue.file || selectedIssueQueueContext?.projectPath || detailProject.path}</code>
               </div>
 
@@ -2160,14 +2213,24 @@ function App() {
                   : 'Codex-created item. Keep the status moving so the workbench reflects what Codex is actively handling.'}
               </div>
 
-              <button
-                className="ask-codex-button"
-                disabled={selectedIssue.status === 'fixed'}
-                onClick={() => askCodexToWorkNow(selectedIssue)}
-                type="button"
-              >
-                Ask Codex: Work Now
-              </button>
+              <div className="ask-codex-actions" aria-label="Ask Codex priority">
+                <button
+                  className="ask-codex-button"
+                  disabled={selectedIssue.status === 'fixed'}
+                  onClick={() => askCodexToWork(selectedIssue, 'soon')}
+                  type="button"
+                >
+                  Ask Codex: Action soon
+                </button>
+                <button
+                  className="ask-codex-button secondary"
+                  disabled={selectedIssue.status === 'fixed'}
+                  onClick={() => askCodexToWork(selectedIssue, 'later')}
+                  type="button"
+                >
+                  Action later
+                </button>
+              </div>
 
               <label className="detail-field">
                 <span>Location</span>
@@ -2190,15 +2253,6 @@ function App() {
                     </option>
                   ))}
                 </select>
-              </label>
-
-              <label className="detail-field">
-                <span>Notes</span>
-                <textarea
-                  onChange={(event) => setEditDetail(event.target.value)}
-                  rows={5}
-                  value={editDetail}
-                />
               </label>
 
               <button className="save-issue-button" disabled={isSavingIssue} type="submit">
