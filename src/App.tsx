@@ -863,10 +863,14 @@ function App() {
       await loadSyncHistory()
     } catch (error) {
       const message = error instanceof Error ? error.message : `${label} failed.`
-      setPendingSshAction(needsSshPassphrase(message) ? action : null)
+      const needsPassphrase = needsSshPassphrase(message)
+      setPendingSshAction(needsPassphrase ? action : null)
       setSyncState({
         tone: 'error',
-        message,
+        message: needsPassphrase
+          ? 'SSH key passphrase required. Enter it below to retry this sync.'
+          : message,
+        output: needsPassphrase ? message : undefined,
         timestamp: new Date().toISOString(),
       })
     }
