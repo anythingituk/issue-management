@@ -168,6 +168,7 @@
 }
 
 .sync-panel > .section-label,
+.projects-label,
 .sync-history-card h3,
 .codex-projects-panel .section-label {
   color: var(--companion-cyan);

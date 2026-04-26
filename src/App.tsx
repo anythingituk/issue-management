@@ -1271,7 +1271,7 @@ function App() {
 
         <div className="sidebar-section">
           <div className="sidebar-section-header">
-            <p className="section-label">Projects</p>
+            <p className="section-label projects-label">Projects</p>
             <button
               aria-expanded={showProjectSettings}
               aria-label="Project settings"
