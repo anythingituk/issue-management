@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startIssueApiServer } from '../server/api.js'
 
-const { app, BrowserWindow } = electron
+const { app, BrowserWindow, dialog, ipcMain } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const appName = 'Codex Companion'
 let apiServer
@@ -24,6 +24,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.mjs'),
     },
   })
 
@@ -38,6 +39,16 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setName(appName)
+  ipcMain.handle('codex-companion:choose-issue-folder', async () => {
+    const result = await dialog.showOpenDialog({
+      buttonLabel: 'Use folder',
+      properties: ['openDirectory'],
+      title: 'Choose Codex Companion issue data folder',
+    })
+
+    return result.canceled ? '' : result.filePaths[0] ?? ''
+  })
+
   const defaultDataRoot = path.join(app.getPath('appData'), appName)
   mkdirSync(defaultDataRoot, { recursive: true })
   process.env.CODEX_COMPANION_DATA_DIR = process.env.CODEX_COMPANION_DATA_DIR ?? defaultDataRoot

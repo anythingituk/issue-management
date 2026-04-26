@@ -48,6 +48,14 @@ type SetupState = {
   output?: string
 }
 
+declare global {
+  interface Window {
+    codexCompanion?: {
+      chooseIssueFolder: () => Promise<string>
+    }
+  }
+}
+
 const statusLabels: Record<IssueStatus, string> = {
   open: 'Open',
   'in-progress': 'In progress',
@@ -135,6 +143,7 @@ function App() {
   const [setupRemoteUrl, setSetupRemoteUrl] = useState('')
   const [setupError, setSetupError] = useState('')
   const [isSettingUp, setIsSettingUp] = useState(false)
+  const [canChooseSetupFolder, setCanChooseSetupFolder] = useState(false)
   const [syncState, setSyncState] = useState<SyncState>({
     tone: 'ready',
     message: 'Checking GitHub sync...',
@@ -154,6 +163,7 @@ function App() {
 
   useEffect(() => {
     let ignore = false
+    setCanChooseSetupFolder(Boolean(window.codexCompanion?.chooseIssueFolder))
 
     async function loadInitialState() {
       try {
@@ -349,6 +359,22 @@ function App() {
     } finally {
       setIsSettingUp(false)
       setIsLoading(false)
+    }
+  }
+
+  async function chooseSetupFolder() {
+    if (!window.codexCompanion?.chooseIssueFolder) {
+      return
+    }
+
+    try {
+      const selectedPath = await window.codexCompanion.chooseIssueFolder()
+      if (selectedPath) {
+        setSetupPath(selectedPath)
+        setSetupError('')
+      }
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : 'Unable to choose folder.')
     }
   }
 
@@ -677,13 +703,22 @@ function App() {
                 <h2>Existing folder</h2>
                 <p>Connect a folder that already contains issue JSON files.</p>
               </div>
-              <div className="setup-form-row">
+              <div className={`setup-form-row ${canChooseSetupFolder ? 'with-browse' : ''}`}>
                 <input
                   aria-label="Existing issue data folder"
                   onChange={(event) => setSetupPath(event.target.value)}
                   placeholder="/mnt/c/dev/issue-management"
                   value={setupPath}
                 />
+                {canChooseSetupFolder ? (
+                  <button
+                    disabled={isLoading || isSettingUp}
+                    onClick={chooseSetupFolder}
+                    type="button"
+                  >
+                    Browse
+                  </button>
+                ) : null}
                 <button disabled={isLoading || isSettingUp} type="submit">
                   Connect
                 </button>
