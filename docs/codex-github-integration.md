@@ -1,0 +1,103 @@
+# Codex and GitHub Integration Contract
+
+The app should stay local-first. GitHub is the transport between machines, and Codex writes issues through a small local interface instead of needing direct access to the UI.
+
+## Issue Storage
+
+Recommended storage layout:
+
+```text
+issues/
+  projects.json
+  issue-management.json
+  client-portal.json
+```
+
+Each project issue file should be deterministic JSON so Git diffs stay readable.
+
+```json
+{
+  "projectId": "issue-management",
+  "issues": [
+    {
+      "id": "iss-20260426-061800",
+      "createdAt": "2026-04-26T06:18:00+01:00",
+      "title": "Create Codex issue intake command",
+      "file": "tools/codex-issue.ts",
+      "status": "in-progress",
+      "category": "feature",
+      "source": "Codex",
+      "detail": "Codex needs a direct command/API path for recording discovered issues.",
+      "activity": ["Codex identified the integration boundary."]
+    }
+  ]
+}
+```
+
+## Codex Intake
+
+Codex should be able to add or update an issue without opening the UI.
+
+```bash
+npm run issue -- add \
+  --project /mnt/c/dev/IssueManagement \
+  --title "Persist issues in Git-friendly files" \
+  --file "issues/issue-management.json" \
+  --category feature \
+  --source Codex
+```
+
+Implemented commands:
+
+- `issue-manager add`
+- `issue-manager status`
+- `issue-manager activity`
+- `issue-manager list`
+
+Supported categories:
+
+- `bug`
+- `snag`
+- `feature`
+- `refactor`
+- `docs`
+- `testing`
+- `question`
+
+`snag` is the user-facing category for small future tweaks. When a snag is added, Codex should check whether the active task already touches the relevant area and either address it opportunistically or leave it queued.
+
+Planned commands:
+
+- `issue-manager sync pull`
+- `issue-manager sync push`
+
+## GitHub Sync
+
+The app should pull before editing and push after local issue changes.
+
+Implemented API endpoints:
+
+- `GET /api/sync/status`
+- `POST /api/sync/pull`
+- `POST /api/sync/push`
+
+The push endpoint stages only `issues/`, commits with `Update issue list`, and then runs `git push`.
+
+```bash
+git pull --rebase
+git add issues/
+git commit -m "Update issue list"
+git push
+```
+
+Conflict handling should prefer preserving both edits. If two machines add different issues, both should remain. If two machines edit the same issue, the app should show a conflict review state rather than silently choosing a winner.
+
+## AGENTS.md Convention
+
+Each Codex-managed project can include this instruction:
+
+```md
+When you discover a non-blocking bug, tweak, or future work item, record it in the Issue Management app using the local `issue-manager` command. Do not interrupt the current task unless the issue blocks completion.
+
+When the user adds a `snag`, check whether the current Codex task naturally overlaps with that snag. If it does, consider working on it in the same session; if it does not, leave it queued for later.
+```

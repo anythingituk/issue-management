@@ -1,0 +1,23 @@
+[
+  {
+    "id": "issue-management",
+    "name": "IssueManagement",
+    "path": "/mnt/c/dev/IssueManagement",
+    "branch": "main",
+    "issueFile": "issue-management.json"
+  },
+  {
+    "id": "client-portal",
+    "name": "Client Portal",
+    "path": "/mnt/c/dev/client-portal",
+    "branch": "feature/accounts",
+    "issueFile": "client-portal.json"
+  },
+  {
+    "id": "website",
+    "name": "Marketing Website",
+    "path": "/mnt/c/dev/marketing-site",
+    "branch": "main",
+    "issueFile": "website.json"
+  }
+]

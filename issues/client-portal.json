@@ -1,0 +1,19 @@
+{
+  "projectId": "client-portal",
+  "issues": [
+    {
+      "id": "iss-004",
+      "projectId": "client-portal",
+      "createdAt": "2026-04-25T16:42:00+01:00",
+      "title": "Invoice filter loses selected month after refresh",
+      "file": "src/features/invoices/InvoiceFilters.tsx",
+      "status": "open",
+      "category": "bug",
+      "source": "Codex",
+      "detail": "State is held only in component memory. Codex should inspect whether URL search params are the right persistence layer.",
+      "activity": [
+        "Detected during review of invoice workflow."
+      ]
+    }
+  ]
+}
