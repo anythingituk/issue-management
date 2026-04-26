@@ -1,4 +1,4 @@
-# Issue Management
+# Codex Companion
 
 Codex Companion is a local-first issue and snag-list app for Codex-managed projects.
 
@@ -41,7 +41,7 @@ Windows packaging:
 npm run dist:win
 ```
 
-The current packaged build includes the issue data files from `issues/`. A later first-run setup should let installed users choose or clone their own Git-backed issue data folder.
+The desktop app uses `Codex Companion` as its installed app name. On Windows, the intended default data store is `%APPDATA%/Codex Companion`. The current packaged build still includes the issue data files from `issues/`; a later first-run setup should copy, choose, or clone a Git-backed issue data folder into that default store.
 
 ## Codex Intake CLI
 

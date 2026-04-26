@@ -127,7 +127,7 @@ async function syncStatus(response) {
     sendJson(response, 200, {
       checkedAt: new Date().toISOString(),
       ready: false,
-      message: 'Issue Management is not connected to a git repository yet.',
+      message: 'Codex Companion is not connected to a git repository yet.',
       output: status.output,
     })
     return

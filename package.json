@@ -22,8 +22,8 @@
     "preview": "vite preview"
   },
   "build": {
-    "appId": "net.anythingit.issue-management",
-    "productName": "Issue Management",
+    "appId": "net.anythingit.codex-companion",
+    "productName": "Codex Companion",
     "directories": {
       "output": "release"
     },

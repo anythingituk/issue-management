@@ -105,17 +105,19 @@ Conflict handling should prefer preserving both edits. If two machines add diffe
 Electron groundwork is present:
 
 - `electron/main.mjs` starts the local API internally.
+- The installed app name is `Codex Companion`.
+- The intended Windows data store is `%APPDATA%/Codex Companion`.
 - `npm run desktop` builds the web UI and opens it in an Electron window.
 - `npm run dist:win` creates Windows targets through `electron-builder`.
 
-Next desktop step: add first-run setup so installed users can choose or clone their Git-backed issue data folder instead of relying on the bundled `issues/` directory.
+Next desktop step: add first-run setup so installed users can copy, choose, or clone their Git-backed issue data folder into `%APPDATA%/Codex Companion` instead of relying on the bundled `issues/` directory.
 
 ## AGENTS.md Convention
 
 Each Codex-managed project can include this instruction:
 
 ```md
-When you discover a non-blocking bug, tweak, or future work item, record it in the Issue Management app using the local `issue-manager` command. Do not interrupt the current task unless the issue blocks completion.
+When you discover a non-blocking bug, tweak, or future work item, record it in Codex Companion using the local `issue-manager` command. Do not interrupt the current task unless the issue blocks completion.
 
 When the user adds a `snag`, check whether the current Codex task naturally overlaps with that snag. If it does, consider working on it in the same session; if it does not, leave it queued for later.
 ```
