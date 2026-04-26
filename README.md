@@ -51,6 +51,8 @@ For public downloads, push a version tag such as `v0.1.0` or run the `Release` w
 
 The desktop app uses `Codex Companion` as its installed app name. On Windows, the default data store is `%APPDATA%/Codex Companion`.
 
+For install, first-launch, GitHub sync, and multi-machine setup instructions, see [docs/windows-user-guide.md](docs/windows-user-guide.md).
+
 On first launch, the app shows a setup screen with three choices:
 
 - create starter local issue data in the default store
