@@ -142,14 +142,11 @@
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #315cff, #42a0ff);
-  color: #ffffff;
-  font-weight: 700;
+  border-radius: 9px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(46, 234, 242, 0.24);
 }
 
 .eyebrow,
