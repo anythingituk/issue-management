@@ -97,6 +97,10 @@ function App() {
   const [newIssueTitle, setNewIssueTitle] = useState('')
   const [newIssueFile, setNewIssueFile] = useState('')
   const [newIssueCategory, setNewIssueCategory] = useState<IssueCategory>('snag')
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectPath, setNewProjectPath] = useState('')
+  const [newProjectBranch, setNewProjectBranch] = useState('main')
+  const [isAddingProject, setIsAddingProject] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editFile, setEditFile] = useState('')
   const [editCategory, setEditCategory] = useState<IssueCategory>('snag')
@@ -374,6 +378,44 @@ function App() {
     }
   }
 
+  async function addProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const name = newProjectName.trim()
+    const projectPath = newProjectPath.trim()
+    if (!name || !projectPath) {
+      setAppError('Project name and path are required.')
+      return
+    }
+
+    setIsAddingProject(true)
+
+    try {
+      const payload = await apiJson<{ project: Project }>('/api/projects', {
+        body: JSON.stringify({
+          name,
+          path: projectPath,
+          branch: newProjectBranch.trim() || 'main',
+        }),
+        method: 'POST',
+      })
+
+      setProjects((currentProjects) => [...currentProjects, payload.project])
+      setSelectedProjectId(payload.project.id)
+      setIssues([])
+      setSelectedIssueId('')
+      setNewProjectName('')
+      setNewProjectPath('')
+      setNewProjectBranch('main')
+      setAppError('')
+      await refreshSyncStatus()
+    } catch (error) {
+      setAppError(error instanceof Error ? error.message : 'Unable to add project.')
+    } finally {
+      setIsAddingProject(false)
+    }
+  }
+
   async function refreshSelectedProject() {
     if (!selectedProjectId) {
       return
@@ -449,6 +491,31 @@ function App() {
               </button>
             ))}
           </div>
+          <form className="add-project-form" onSubmit={addProject}>
+            <input
+              aria-label="Project name"
+              onChange={(event) => setNewProjectName(event.target.value)}
+              placeholder="Project name"
+              value={newProjectName}
+            />
+            <input
+              aria-label="Project path"
+              onChange={(event) => setNewProjectPath(event.target.value)}
+              placeholder="/mnt/c/dev/project"
+              value={newProjectPath}
+            />
+            <div className="add-project-row">
+              <input
+                aria-label="Project branch"
+                onChange={(event) => setNewProjectBranch(event.target.value)}
+                placeholder="main"
+                value={newProjectBranch}
+              />
+              <button disabled={isAddingProject} type="submit" title="Add project">
+                Add
+              </button>
+            </div>
+          </form>
         </div>
 
         <div className={`sync-panel ${syncState.tone}`}>

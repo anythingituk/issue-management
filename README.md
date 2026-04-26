@@ -8,6 +8,7 @@ The first screen is the working companion layout:
 - central issue list with date/time, title, file, source, category, and status
 - detail inspector with notes, category, status controls, and Codex activity
 - quick-add flow for user-created future requests
+- sidebar flow for adding local Codex projects
 - visible GitHub pull/push sync controls
 
 ## Run

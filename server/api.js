@@ -40,6 +40,14 @@ async function readProjects() {
   return readJson(projectsPath)
 }
 
+function slugifyProjectId(value) {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 function projectIssuePath(project) {
   return path.join(issuesDir, project.issueFile ?? `${project.id}.json`)
 }
@@ -246,6 +254,60 @@ async function getProjects(response) {
   sendJson(response, 200, { projects: projectsWithCounts })
 }
 
+async function addProject(response, request) {
+  const body = await readRequestJson(request)
+  const projects = await readProjects()
+  const name = String(body.name ?? '').trim()
+  const projectPath = String(body.path ?? '').trim()
+  const branch = String(body.branch ?? '').trim() || 'main'
+  const id = slugifyProjectId(body.id || name || path.basename(projectPath))
+
+  if (!name) {
+    sendError(response, 400, 'Project name is required.')
+    return
+  }
+
+  if (!projectPath) {
+    sendError(response, 400, 'Project path is required.')
+    return
+  }
+
+  if (!id) {
+    sendError(response, 400, 'Project id could not be derived.')
+    return
+  }
+
+  if (projects.some((project) => project.id === id)) {
+    sendError(response, 409, 'A project with this id already exists.')
+    return
+  }
+
+  if (projects.some((project) => path.resolve(project.path) === path.resolve(projectPath))) {
+    sendError(response, 409, 'A project with this path already exists.')
+    return
+  }
+
+  const project = {
+    id,
+    name,
+    path: projectPath,
+    branch,
+    issueFile: `${id}.json`,
+  }
+
+  await writeJson(projectsPath, [...projects, project])
+  await writeFile(projectIssuePath(project), `${JSON.stringify({ projectId: id, issues: [] }, null, 2)}\n`, {
+    flag: 'wx',
+  })
+
+  sendJson(response, 201, {
+    project: {
+      ...project,
+      openCount: 0,
+    },
+  })
+}
+
 async function getIssues(response, searchParams) {
   const projectId = searchParams.get('project')
   if (!projectId) {
@@ -381,6 +443,11 @@ async function route(request, response) {
 
   if (request.method === 'POST' && url.pathname === '/api/issues') {
     await addIssue(response, request)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/projects') {
+    await addProject(response, request)
     return
   }
 

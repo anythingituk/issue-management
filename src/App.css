@@ -104,6 +104,45 @@
   font-size: 12px;
 }
 
+.add-project-form {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.add-project-form input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: 13px;
+}
+
+.add-project-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px;
+  gap: 8px;
+}
+
+.add-project-form button {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.add-project-form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .sync-panel {
   margin-top: auto;
   padding: 12px;

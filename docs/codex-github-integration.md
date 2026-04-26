@@ -77,10 +77,13 @@ The app should pull before editing and push after local issue changes.
 
 Implemented API endpoints:
 
+- `POST /api/projects`
 - `GET /api/sync/status`
 - `POST /api/sync/pull`
 - `POST /api/sync/push`
 - `POST /api/sync/all`
+
+`POST /api/projects` appends to `issues/projects.json` and creates the matching empty project issue file.
 
 The push endpoint stages only `issues/`, commits with `Update issue list`, and then runs `git push`.
 
