@@ -766,6 +766,30 @@ button {
   min-width: 0;
 }
 
+.refresh-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--companion-cyan);
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.refresh-button:hover {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+
+.refresh-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .view-switcher {
   display: flex;
   align-items: center;

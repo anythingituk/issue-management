@@ -1,4 +1,22 @@
 {
   "projectId": "issue-management",
-  "issues": []
+  "issues": [
+    {
+      "id": "iss-1777223270299",
+      "projectId": "issue-management",
+      "createdAt": "2026-04-26T17:07:50.299Z",
+      "title": "Add a refresh icon for the Electron app",
+      "status": "fixed",
+      "decision": "approved",
+      "category": "feature",
+      "source": "User",
+      "detail": "Added a header refresh icon that reloads projects, queue data, Codex projects, and GitHub sync status.",
+      "activity": [
+        "Codex added the refresh icon and wired it to reload the workbench state.",
+        "User asked Codex to work on this now.",
+        "Added from the companion app."
+      ],
+      "file": "src/App.tsx"
+    }
+  ]
 }

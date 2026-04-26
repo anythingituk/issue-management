@@ -206,6 +206,7 @@ function App() {
   const [isSwitchingIssueData, setIsSwitchingIssueData] = useState(false)
   const [gitRemoteUrl, setGitRemoteUrl] = useState('')
   const [isConnectingGit, setIsConnectingGit] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [syncState, setSyncState] = useState<SyncState>({
     tone: 'ready',
     message: 'Checking GitHub sync...',
@@ -1049,6 +1050,34 @@ function App() {
     })
   }
 
+  async function refreshWorkbench() {
+    setIsRefreshing(true)
+
+    try {
+      await Promise.all([
+        selectedProjectId ? refreshSelectedProject() : loadProjectList(),
+        loadCodexProjects(),
+        refreshSyncStatus(),
+      ])
+      setAppError('')
+      showToast({
+        message: 'Projects, queues, issue data, and GitHub status have been reloaded.',
+        title: 'Codex Companion refreshed',
+        tone: 'success',
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to refresh Codex Companion.'
+      setAppError(message)
+      showToast({
+        message,
+        title: 'Refresh failed',
+        tone: 'warning',
+      })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   function needsSshPassphrase(message: string) {
     return /ssh-askpass|permission denied \(publickey\)|could not read from remote repository/i.test(message)
   }
@@ -1615,6 +1644,16 @@ function App() {
             </h2>
           </div>
           <div className="header-tools">
+            <button
+              aria-label="Refresh Codex Companion"
+              className="refresh-button"
+              disabled={isRefreshing || isLoading}
+              onClick={refreshWorkbench}
+              title="Refresh projects, issues, queues, and GitHub status"
+              type="button"
+            >
+              ↻
+            </button>
             <div className="view-switcher" aria-label="Issue views">
               <button
                 className={paneMode === 'workbench' ? 'active' : ''}
