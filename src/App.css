@@ -162,6 +162,10 @@
   text-transform: uppercase;
 }
 
+.branch-eyebrow {
+  color: #2eeaf2;
+}
+
 .brand-block h1,
 .pane-header h2,
 .detail-header h2 {

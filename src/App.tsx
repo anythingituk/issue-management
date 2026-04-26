@@ -1508,7 +1508,11 @@ function App() {
               {paneMode === 'workbench'
                 ? `${queueCounts.user} user added · ${queueCounts.codex} Codex`
                 : paneMode === 'project'
-                ? selectedProject?.branch ?? 'Loading'
+                ? (
+                    <span className="branch-eyebrow">
+                      Branch: {selectedProject?.branch ?? 'Loading'}
+                    </span>
+                  )
                 : paneMode === 'codex'
                   ? `${queueCounts.codexInProgress} in progress`
                   : `${queueCounts.userSnags} snags`}
