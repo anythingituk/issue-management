@@ -31,6 +31,12 @@ const categoryLabels = {
   question: 'Question',
 }
 
+const decisionLabels = {
+  approved: 'Approved',
+  waiting: 'Waiting',
+  ignored: 'Ignored',
+}
+
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, 'utf8'))
 }
@@ -145,7 +151,12 @@ function projectIssuePath(project) {
 async function readProjectIssues(project) {
   try {
     const issueFile = await readJson(projectIssuePath(project))
-    return Array.isArray(issueFile.issues) ? issueFile.issues : []
+    return Array.isArray(issueFile.issues)
+      ? issueFile.issues.map((issue) => ({
+          ...issue,
+          decision: issue.decision && decisionLabels[issue.decision] ? issue.decision : 'waiting',
+        }))
+      : []
   } catch (error) {
     if (error.code === 'ENOENT') {
       return []
@@ -839,6 +850,7 @@ async function addIssue(response, request) {
     title,
     file: String(body.file ?? '').trim() || undefined,
     status: body.status && statusLabels[body.status] ? body.status : 'open',
+    decision: body.decision && decisionLabels[body.decision] ? body.decision : 'waiting',
     category,
     source: body.source === 'Codex' ? 'Codex' : 'User',
     detail:
@@ -872,11 +884,16 @@ async function patchIssue(response, request, issueId) {
     const currentIssue = issues[issueIndex]
     const nextStatus =
       body.status && statusLabels[body.status] ? body.status : currentIssue.status
+    const nextDecision =
+      body.decision && decisionLabels[body.decision] ? body.decision : currentIssue.decision ?? 'waiting'
     const activity = Array.isArray(currentIssue.activity) ? currentIssue.activity : []
     const statusChanged = nextStatus !== currentIssue.status
-    const nextActivity = statusChanged
-      ? [`Status changed to ${statusLabels[nextStatus]}.`, ...activity]
-      : activity
+    const decisionChanged = nextDecision !== (currentIssue.decision ?? 'waiting')
+    const nextActivity = [
+      ...(decisionChanged ? [`Codex decision changed to ${decisionLabels[nextDecision]}.`] : []),
+      ...(statusChanged ? [`Status changed to ${statusLabels[nextStatus]}.`] : []),
+      ...activity,
+    ]
 
     const nextTitle = body.title === undefined ? currentIssue.title : String(body.title).trim()
     if (!nextTitle) {
@@ -887,6 +904,7 @@ async function patchIssue(response, request, issueId) {
     const nextIssue = {
       ...currentIssue,
       status: nextStatus,
+      decision: nextDecision,
       category:
         body.category === undefined || !categoryLabels[body.category]
           ? currentIssue.category

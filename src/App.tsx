@@ -5,6 +5,7 @@ import './App.css'
 type IssueStatus = 'open' | 'in-progress' | 'fixed' | 'deferred'
 type IssueSource = 'Codex' | 'User'
 type IssueCategory = 'bug' | 'snag' | 'feature' | 'refactor' | 'docs' | 'testing' | 'question'
+type IssueDecision = 'approved' | 'waiting' | 'ignored'
 type StatusFilter = IssueStatus | 'all'
 type CategoryFilter = IssueCategory | 'all'
 type SourceFilter = IssueSource | 'all'
@@ -36,6 +37,7 @@ type Issue = {
   title: string
   file?: string
   status: IssueStatus
+  decision: IssueDecision
   category: IssueCategory
   source: IssueSource
   detail: string
@@ -98,6 +100,18 @@ const categoryLabels: Record<IssueCategory, string> = {
   docs: 'Docs',
   testing: 'Testing',
   question: 'Question',
+}
+
+const decisionLabels: Record<IssueDecision, string> = {
+  approved: 'Approved for Codex',
+  waiting: 'Waiting for confirmation',
+  ignored: 'Ignore for now',
+}
+
+const decisionGlyphs: Record<IssueDecision, string> = {
+  approved: '✓',
+  waiting: '○',
+  ignored: '×',
 }
 
 const apiBaseUrl = globalThis.location?.protocol === 'file:' ? 'http://localhost:8787' : ''
@@ -346,16 +360,17 @@ function App() {
       (sourceFilter === 'all' || issue.source === sourceFilter) &&
       (!query ||
         [
-        issue.title,
-        issue.file ?? '',
-        statusLabels[issue.status],
-        categoryLabels[issue.category],
-        issue.source,
-        issue.detail,
-        ...issue.activity,
-      ]
-        .join(' ')
-        .toLowerCase()
+          issue.title,
+          issue.file ?? '',
+          statusLabels[issue.status],
+          categoryLabels[issue.category],
+          decisionLabels[issue.decision ?? 'waiting'],
+          issue.source,
+          issue.detail,
+          ...issue.activity,
+        ]
+          .join(' ')
+          .toLowerCase()
           .includes(query)),
     )
   }, [categoryFilter, hideFixed, issues, searchQuery, sourceFilter, statusFilter])
@@ -376,6 +391,7 @@ function App() {
           issue.projectPath,
           statusLabels[issue.status],
           categoryLabels[issue.category],
+          decisionLabels[issue.decision ?? 'waiting'],
           issue.detail,
           ...issue.activity,
         ]
@@ -634,6 +650,57 @@ function App() {
     } catch (error) {
       setIssues(previousIssues)
       setAppError(error instanceof Error ? error.message : 'Unable to update issue.')
+    }
+  }
+
+  async function updateDecision(issueId: string, decision: IssueDecision) {
+    const previousIssues = issues
+    const previousQueueIssues = queueIssues
+
+    setIssues((currentIssues) =>
+      currentIssues.map((issue) =>
+        issue.id === issueId
+          ? {
+              ...issue,
+              decision,
+              activity: [`Codex decision changed to ${decisionLabels[decision]}.`, ...issue.activity],
+            }
+          : issue,
+      ),
+    )
+    setQueueIssues((currentIssues) =>
+      currentIssues.map((issue) =>
+        issue.id === issueId
+          ? {
+              ...issue,
+              decision,
+              activity: [`Codex decision changed to ${decisionLabels[decision]}.`, ...issue.activity],
+            }
+          : issue,
+      ),
+    )
+
+    try {
+      const payload = await apiJson<{ issue: Issue }>(`/api/issues/${encodeURIComponent(issueId)}`, {
+        body: JSON.stringify({ decision }),
+        method: 'PATCH',
+      })
+
+      setIssues((currentIssues) =>
+        currentIssues.map((issue) => (issue.id === issueId ? payload.issue : issue)),
+      )
+      setQueueIssues((currentIssues) =>
+        currentIssues.map((issue) =>
+          issue.id === issueId ? { ...issue, ...payload.issue } : issue,
+        ),
+      )
+      setAppError('')
+      await loadQueue()
+      await refreshSyncStatus()
+    } catch (error) {
+      setIssues(previousIssues)
+      setQueueIssues(previousQueueIssues)
+      setAppError(error instanceof Error ? error.message : 'Unable to update Codex decision.')
     }
   }
 
@@ -982,6 +1049,30 @@ function App() {
     } finally {
       setIsConnectingGit(false)
     }
+  }
+
+  function renderDecisionControls(issue: Issue) {
+    const currentDecision = issue.decision ?? 'waiting'
+
+    return (
+      <span className="decision-controls" aria-label="Codex task decision">
+        {(Object.keys(decisionLabels) as IssueDecision[]).map((decision) => (
+          <button
+            aria-label={decisionLabels[decision]}
+            className={`decision-button ${decision} ${currentDecision === decision ? 'active' : ''}`}
+            key={decision}
+            onClick={(event) => {
+              event.stopPropagation()
+              updateDecision(issue.id, decision)
+            }}
+            title={decisionLabels[decision]}
+            type="button"
+          >
+            {decisionGlyphs[decision]}
+          </button>
+        ))}
+      </span>
+    )
   }
 
   if (!setupState?.configured) {
@@ -1671,11 +1762,12 @@ function App() {
           <div className="issue-list">
           {(paneMode === 'project' ? filteredIssues : filteredQueueIssues).map((issue) => (
             paneMode === 'project' ? (
-              <button
+              <div
                 className={`issue-row ${issue.status} ${issue.id === selectedIssue?.id ? 'selected' : ''}`}
                 key={issue.id}
                 onClick={() => setSelectedIssueId(issue.id)}
-                type="button"
+                role="button"
+                tabIndex={0}
               >
                 <span className="status-glyph" aria-hidden="true"></span>
                 <span className="issue-time">{formatDate(issue.createdAt)}</span>
@@ -1685,13 +1777,15 @@ function App() {
                 </span>
                 <span className="issue-file">{issue.file ?? 'Project note'}</span>
                 <span className="issue-source">{issue.source}</span>
-              </button>
+                {renderDecisionControls(issue)}
+              </div>
             ) : (
-              <button
+              <div
                 className={`issue-row queue-row ${issue.status} ${issue.id === selectedIssue?.id ? 'selected' : ''}`}
                 key={issue.id}
                 onClick={() => openQueueIssue(issue as QueueIssue)}
-                type="button"
+                role="button"
+                tabIndex={0}
               >
                 <span className="status-glyph" aria-hidden="true"></span>
                 <span className="issue-time">{formatDate(issue.createdAt)}</span>
@@ -1701,7 +1795,8 @@ function App() {
                 </span>
                 <span className="issue-file">{(issue as QueueIssue).projectName}</span>
                 <span className="issue-source">{issue.status === 'in-progress' ? 'Active' : issue.source}</span>
-              </button>
+                {renderDecisionControls(issue)}
+              </div>
             )
           ))}
           {!isLoading && (paneMode === 'project' ? filteredIssues : filteredQueueIssues).length === 0 ? (

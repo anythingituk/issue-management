@@ -1088,7 +1088,7 @@ button {
 
 .issue-row {
   display: grid;
-  grid-template-columns: 18px 82px minmax(150px, 1fr) 82px minmax(120px, 210px) 60px;
+  grid-template-columns: 18px 82px minmax(150px, 1fr) 82px minmax(120px, 210px) 60px 92px;
   align-items: center;
   gap: 10px;
   min-height: 52px;
@@ -1102,7 +1102,7 @@ button {
 }
 
 .issue-row.queue-row {
-  grid-template-columns: 18px 82px minmax(150px, 1fr) 82px minmax(120px, 190px) 68px;
+  grid-template-columns: 18px 82px minmax(150px, 1fr) 82px minmax(120px, 190px) 68px 92px;
 }
 
 .issue-row:hover,
@@ -1179,6 +1179,48 @@ button {
 
 .issue-file {
   font-family: var(--mono);
+}
+
+.decision-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.decision-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.decision-button:hover,
+.decision-button.active {
+  border-color: currentColor;
+  box-shadow: 0 0 0 2px var(--focus-soft);
+}
+
+.decision-button.approved.active {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.decision-button.waiting.active {
+  background: var(--grey-soft);
+  color: var(--text-muted);
+}
+
+.decision-button.ignored.active {
+  background: var(--red-soft);
+  color: var(--red);
 }
 
 .category-pill {
@@ -1507,11 +1549,12 @@ code {
   }
 
   .issue-row {
-    grid-template-columns: 16px 74px minmax(0, 1fr) 74px;
+    grid-template-columns: 16px 74px minmax(0, 1fr) 84px;
   }
 
   .issue-file,
-  .issue-source {
+  .issue-source,
+  .category-pill {
     display: none;
   }
 }
