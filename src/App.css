@@ -1445,6 +1445,25 @@ button {
   opacity: 0.65;
 }
 
+.ask-codex-button {
+  min-height: 38px;
+  border: 1px solid rgba(46, 234, 242, 0.52);
+  border-radius: 8px;
+  background: rgba(46, 234, 242, 0.1);
+  color: var(--companion-cyan);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.ask-codex-button:hover {
+  box-shadow: 0 0 0 3px rgba(46, 234, 242, 0.12);
+}
+
+.ask-codex-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .status-pill {
   width: max-content;
   padding: 4px 9px;
@@ -1505,6 +1524,70 @@ code {
   color: var(--text);
   font-size: 14px;
   line-height: 1.45;
+}
+
+.app-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+  display: grid;
+  gap: 5px;
+  width: min(360px, calc(100vw - 36px));
+  padding: 14px 42px 14px 15px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(12, 17, 23, 0.96);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.42);
+  animation: toast-slide-in 180ms ease-out;
+}
+
+.app-toast.success {
+  border-color: rgba(100, 213, 138, 0.5);
+}
+
+.app-toast.warning {
+  border-color: rgba(255, 121, 121, 0.5);
+}
+
+.app-toast.info {
+  border-color: rgba(46, 234, 242, 0.5);
+}
+
+.app-toast strong {
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.app-toast span {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.app-toast button {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translate(16px, 16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
 }
 
 @media (max-width: 1180px) {

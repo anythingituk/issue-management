@@ -10,6 +10,12 @@ type StatusFilter = IssueStatus | 'all'
 type CategoryFilter = IssueCategory | 'all'
 type SourceFilter = IssueSource | 'all'
 type SyncAction = 'pull' | 'push' | 'all'
+type Toast = {
+  id: string
+  message: string
+  title: string
+  tone: 'info' | 'success' | 'warning'
+}
 
 type Project = {
   id: string
@@ -204,6 +210,14 @@ function App() {
   const [syncHistory, setSyncHistory] = useState<SyncEvent[]>([])
   const [sshPassphrase, setSshPassphrase] = useState('')
   const [pendingSshAction, setPendingSshAction] = useState<SyncAction | null>(null)
+  const [toast, setToast] = useState<Toast | null>(null)
+
+  function showToast(toastContent: Omit<Toast, 'id'>) {
+    setToast({
+      ...toastContent,
+      id: `toast-${Date.now()}`,
+    })
+  }
 
   async function loadProjectList() {
     const payload = await apiJson<{ projects: Project[] }>('/api/projects')
@@ -491,6 +505,15 @@ function App() {
     }
   }, [setupState?.configured])
 
+  useEffect(() => {
+    if (!toast) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => setToast(null), 5200)
+    return () => window.clearTimeout(timeout)
+  }, [toast])
+
   async function completeSetup(action: 'starter' | 'existing' | 'clone') {
     const body =
       action === 'existing'
@@ -701,6 +724,68 @@ function App() {
       setIssues(previousIssues)
       setQueueIssues(previousQueueIssues)
       setAppError(error instanceof Error ? error.message : 'Unable to update Codex decision.')
+    }
+  }
+
+  async function askCodexToWorkNow(issue: Issue) {
+    const previousIssues = issues
+    const previousQueueIssues = queueIssues
+    const nextActivity = [
+      'User asked Codex to work on this now.',
+      ...issue.activity,
+    ]
+    const optimisticIssue = {
+      ...issue,
+      decision: 'approved' as IssueDecision,
+      status: 'in-progress' as IssueStatus,
+      activity: nextActivity,
+    }
+
+    setIssues((currentIssues) =>
+      currentIssues.map((item) => (item.id === issue.id ? optimisticIssue : item)),
+    )
+    setQueueIssues((currentIssues) =>
+      currentIssues.map((item) =>
+        item.id === issue.id ? { ...item, ...optimisticIssue } : item,
+      ),
+    )
+
+    try {
+      const payload = await apiJson<{ issue: Issue }>(`/api/issues/${encodeURIComponent(issue.id)}`, {
+        body: JSON.stringify({
+          activity: nextActivity,
+          decision: 'approved',
+          status: 'in-progress',
+        }),
+        method: 'PATCH',
+      })
+
+      setIssues((currentIssues) =>
+        currentIssues.map((item) => (item.id === issue.id ? payload.issue : item)),
+      )
+      setQueueIssues((currentIssues) =>
+        currentIssues.map((item) =>
+          item.id === issue.id ? { ...item, ...payload.issue } : item,
+        ),
+      )
+      setPaneMode('codex')
+      setAppError('')
+      showToast({
+        message: 'Marked approved and in progress. The Codex issue check can now pick this up as actionable.',
+        title: 'Codex work request queued',
+        tone: 'success',
+      })
+      await loadQueue()
+      await refreshSyncStatus()
+    } catch (error) {
+      setIssues(previousIssues)
+      setQueueIssues(previousQueueIssues)
+      setAppError(error instanceof Error ? error.message : 'Unable to ask Codex to work now.')
+      showToast({
+        message: error instanceof Error ? error.message : 'Unable to ask Codex to work now.',
+        title: 'Codex request failed',
+        tone: 'warning',
+      })
     }
   }
 
@@ -1871,6 +1956,15 @@ function App() {
                   : 'Codex-created item. Keep the status moving so the workbench reflects what Codex is actively handling.'}
               </div>
 
+              <button
+                className="ask-codex-button"
+                disabled={selectedIssue.status === 'fixed'}
+                onClick={() => askCodexToWorkNow(selectedIssue)}
+                type="button"
+              >
+                Ask Codex: Work Now
+              </button>
+
               <label className="detail-field">
                 <span>Location</span>
                 <input
@@ -1934,6 +2028,19 @@ function App() {
           <p>{isLoading ? 'Loading issues...' : 'No issue selected.'}</p>
         )}
       </aside>
+      {toast ? (
+        <div className={`app-toast ${toast.tone}`} role="status">
+          <button
+            aria-label="Dismiss notification"
+            onClick={() => setToast(null)}
+            type="button"
+          >
+            ×
+          </button>
+          <strong>{toast.title}</strong>
+          <span>{toast.message}</span>
+        </div>
+      ) : null}
     </main>
   )
 }
