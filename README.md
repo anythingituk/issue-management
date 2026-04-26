@@ -39,8 +39,11 @@ npm run desktop
 Windows packaging:
 
 ```bash
+npm run dist:dir
 npm run dist:win
 ```
+
+`npm run dist:dir` creates an unpacked app in `release/` for a fast packaging sanity check. `npm run dist:win` creates the Windows installer and portable build. The installer is named Codex Companion, creates Start Menu and desktop shortcuts, and preserves `%APPDATA%/Codex Companion` on uninstall so local issue data is not deleted accidentally.
 
 The desktop app uses `Codex Companion` as its installed app name. On Windows, the default data store is `%APPDATA%/Codex Companion`.
 

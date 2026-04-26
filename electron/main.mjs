@@ -7,14 +7,21 @@ import { startIssueApiServer } from '../server/api.js'
 const { app, BrowserWindow, dialog, ipcMain } = electron
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const appName = 'Codex Companion'
+const appUserModelId = 'net.anythingit.codex-companion'
 let apiServer
+let mainWindow
 
 if (!app || !BrowserWindow) {
   throw new Error('Electron main process must be started with the electron runtime.')
 }
 
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+}
+
 function createWindow() {
-  const window = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     backgroundColor: '#18191d',
     height: 860,
     minHeight: 680,
@@ -28,39 +35,58 @@ function createWindow() {
     },
   })
 
+  mainWindow.on('closed', () => {
+    mainWindow = undefined
+  })
+
   const devUrl = process.env.VITE_DEV_SERVER_URL
   if (devUrl) {
-    window.loadURL(devUrl)
+    mainWindow.loadURL(devUrl)
     return
   }
 
-  window.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
+  mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
 }
 
-app.whenReady().then(() => {
-  app.setName(appName)
-  ipcMain.handle('codex-companion:choose-folder', async (_event, options = {}) => {
-    const result = await dialog.showOpenDialog({
-      buttonLabel: options.buttonLabel || 'Use folder',
-      properties: ['openDirectory'],
-      title: options.title || 'Choose folder',
+if (gotSingleInstanceLock) {
+  app.whenReady().then(() => {
+    app.setName(appName)
+    app.setAppUserModelId(appUserModelId)
+    ipcMain.handle('codex-companion:choose-folder', async (_event, options = {}) => {
+      const result = await dialog.showOpenDialog({
+        buttonLabel: options.buttonLabel || 'Use folder',
+        properties: ['openDirectory'],
+        title: options.title || 'Choose folder',
+      })
+
+      return result.canceled ? '' : result.filePaths[0] ?? ''
     })
 
-    return result.canceled ? '' : result.filePaths[0] ?? ''
+    const defaultDataRoot = path.join(app.getPath('appData'), appName)
+    mkdirSync(defaultDataRoot, { recursive: true })
+    process.env.CODEX_COMPANION_DATA_DIR = process.env.CODEX_COMPANION_DATA_DIR ?? defaultDataRoot
+    apiServer = startIssueApiServer()
+    createWindow()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      }
+    })
   })
 
-  const defaultDataRoot = path.join(app.getPath('appData'), appName)
-  mkdirSync(defaultDataRoot, { recursive: true })
-  process.env.CODEX_COMPANION_DATA_DIR = process.env.CODEX_COMPANION_DATA_DIR ?? defaultDataRoot
-  apiServer = startIssueApiServer()
-  createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+  app.on('second-instance', () => {
+    if (!mainWindow) {
+      return
     }
+
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore()
+    }
+
+    mainWindow.focus()
   })
-})
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

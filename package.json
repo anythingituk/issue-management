@@ -1,8 +1,9 @@
 {
   "name": "issue-management",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Codex companion for issue and snag management",
+  "author": "Anything IT",
   "type": "module",
   "main": "electron/main.mjs",
   "bin": {
@@ -15,6 +16,7 @@
     "desktop": "npm run build && electron .",
     "desktop:dev": "electron .",
     "dist": "npm run build && electron-builder",
+    "dist:dir": "npm run build && electron-builder --dir",
     "dist:win": "npm run build && electron-builder --win",
     "issue": "node bin/issue-manager.js",
     "build": "tsc -b && vite build",
@@ -23,6 +25,9 @@
   },
   "build": {
     "appId": "net.anythingit.codex-companion",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "asar": true,
+    "npmRebuild": false,
     "productName": "Codex Companion",
     "directories": {
       "output": "release"
@@ -35,10 +40,31 @@
       "package.json"
     ],
     "win": {
+      "executableName": "Codex Companion",
       "target": [
-        "nsis",
-        "portable"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
+    },
+    "nsis": {
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "oneClick": false,
+      "perMachine": false,
+      "shortcutName": "Codex Companion",
+      "uninstallDisplayName": "Codex Companion"
     }
   },
   "dependencies": {
