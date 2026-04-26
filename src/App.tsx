@@ -1168,7 +1168,7 @@ function App() {
       <main className="setup-shell">
         <section className="setup-panel" aria-label="Codex Companion setup">
           <div className="setup-heading">
-            <img className="brand-mark" src="/codex-companion-icon.png" alt="" aria-hidden="true" />
+            <img className="brand-mark" src="codex-companion-icon.png" alt="" aria-hidden="true" />
             <div>
               <p className="eyebrow">Codex Companion</p>
               <h1>Connect issue data</h1>
@@ -1263,7 +1263,7 @@ function App() {
     <main className="companion-shell">
       <aside className="project-sidebar" aria-label="Projects">
         <div className="brand-block">
-          <img className="brand-mark" src="/codex-companion-icon.png" alt="" aria-hidden="true" />
+          <img className="brand-mark" src="codex-companion-icon.png" alt="" aria-hidden="true" />
           <div>
             <p className="eyebrow brand-title">Codex Companion</p>
           </div>
