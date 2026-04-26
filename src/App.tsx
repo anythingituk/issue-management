@@ -141,10 +141,12 @@ function App() {
   const [newProjectPath, setNewProjectPath] = useState('')
   const [newProjectBranch, setNewProjectBranch] = useState('main')
   const [isAddingProject, setIsAddingProject] = useState(false)
+  const [showAddProjectForm, setShowAddProjectForm] = useState(false)
   const [editProjectName, setEditProjectName] = useState('')
   const [editProjectPath, setEditProjectPath] = useState('')
   const [editProjectBranch, setEditProjectBranch] = useState('')
   const [isSavingProject, setIsSavingProject] = useState(false)
+  const [showProjectSettings, setShowProjectSettings] = useState(false)
   const [showArchivedProjects, setShowArchivedProjects] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editFile, setEditFile] = useState('')
@@ -721,6 +723,7 @@ function App() {
       setNewProjectName('')
       setNewProjectPath('')
       setNewProjectBranch('main')
+      setShowAddProjectForm(false)
       setAppError('')
       await loadQueue()
       await refreshSyncStatus()
@@ -1032,15 +1035,19 @@ function App() {
         </div>
 
         <div className="sidebar-section">
-          <p className="section-label">Projects</p>
-          <label className="show-archived-toggle">
-            <input
-              checked={showArchivedProjects}
-              onChange={(event) => setShowArchivedProjects(event.target.checked)}
-              type="checkbox"
-            />
-            <span>Show archived</span>
-          </label>
+          <div className="sidebar-section-header">
+            <p className="section-label">Projects</p>
+            <button
+              aria-expanded={showProjectSettings}
+              aria-label="Project settings"
+              className="project-settings-toggle"
+              onClick={() => setShowProjectSettings((isOpen) => !isOpen)}
+              title="Project settings"
+              type="button"
+            >
+              ⚙
+            </button>
+          </div>
           <div className="project-list">
             {visibleProjects.map((project) => (
               <button
@@ -1059,61 +1066,42 @@ function App() {
               </button>
             ))}
           </div>
-          <form className="add-project-form" onSubmit={addProject}>
-            <input
-              aria-label="Project name"
-              onChange={(event) => setNewProjectName(event.target.value)}
-              placeholder="Project name"
-              value={newProjectName}
-            />
-            <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
+          <div className="project-sidebar-actions">
+            <button
+              aria-expanded={showAddProjectForm}
+              onClick={() => setShowAddProjectForm((isOpen) => !isOpen)}
+              type="button"
+            >
+              {showAddProjectForm ? 'Cancel' : 'Add project'}
+            </button>
+            <label className="show-archived-toggle">
               <input
-                aria-label="Project path"
-                onChange={(event) => setNewProjectPath(event.target.value)}
-                placeholder="/mnt/c/dev/project"
-                value={newProjectPath}
+                checked={showArchivedProjects}
+                onChange={(event) => setShowArchivedProjects(event.target.checked)}
+                type="checkbox"
               />
-              {canChooseFolder ? (
-                <button
-                  disabled={isAddingProject}
-                  onClick={chooseNewProjectFolder}
-                  type="button"
-                  title="Browse for project folder"
-                >
-                  Browse
-                </button>
-              ) : null}
-            </div>
-            <div className="add-project-row">
+              <span>Archived</span>
+            </label>
+          </div>
+          {showAddProjectForm ? (
+            <form className="add-project-form" onSubmit={addProject}>
               <input
-                aria-label="Project branch"
-                onChange={(event) => setNewProjectBranch(event.target.value)}
-                placeholder="main"
-                value={newProjectBranch}
-              />
-              <button disabled={isAddingProject} type="submit" title="Add project">
-                Add
-              </button>
-            </div>
-          </form>
-          {selectedProject ? (
-            <form className="edit-project-form" onSubmit={saveProject}>
-              <p className="section-label">Selected Project</p>
-              <input
-                aria-label="Selected project name"
-                onChange={(event) => setEditProjectName(event.target.value)}
-                value={editProjectName}
+                aria-label="Project name"
+                onChange={(event) => setNewProjectName(event.target.value)}
+                placeholder="Project name"
+                value={newProjectName}
               />
               <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
                 <input
-                  aria-label="Selected project path"
-                  onChange={(event) => setEditProjectPath(event.target.value)}
-                  value={editProjectPath}
+                  aria-label="Project path"
+                  onChange={(event) => setNewProjectPath(event.target.value)}
+                  placeholder="/mnt/c/dev/project"
+                  value={newProjectPath}
                 />
                 {canChooseFolder ? (
                   <button
-                    disabled={isSavingProject}
-                    onClick={chooseEditProjectFolder}
+                    disabled={isAddingProject}
+                    onClick={chooseNewProjectFolder}
                     type="button"
                     title="Browse for project folder"
                   >
@@ -1123,50 +1111,101 @@ function App() {
               </div>
               <div className="add-project-row">
                 <input
-                  aria-label="Selected project branch"
-                  onChange={(event) => setEditProjectBranch(event.target.value)}
-                  value={editProjectBranch}
+                  aria-label="Project branch"
+                  onChange={(event) => setNewProjectBranch(event.target.value)}
+                  placeholder="main"
+                  value={newProjectBranch}
                 />
-                <button disabled={isSavingProject} type="submit" title="Save project">
-                  Save
+                <button disabled={isAddingProject} type="submit" title="Add project">
+                  Add
                 </button>
               </div>
-              <button
-                className="archive-project-button"
-                disabled={isSavingProject}
-                onClick={() => setProjectArchived(selectedProject, !selectedProject.archived)}
-                type="button"
-              >
-                {selectedProject.archived ? 'Restore project' : 'Archive project'}
-              </button>
             </form>
           ) : null}
-        </div>
 
-        <form className="data-store-panel" onSubmit={switchIssueData}>
-          <p className="section-label">Issue Data</p>
-          <code>{setupState.rootDir}</code>
-          <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
-            <input
-              aria-label="Issue data folder"
-              onChange={(event) => setIssueDataPath(event.target.value)}
-              value={issueDataPath}
-            />
-            {canChooseFolder ? (
+          {showProjectSettings ? (
+            <div className="project-settings-panel">
+              {selectedProject ? (
+                <form className="edit-project-form" onSubmit={saveProject}>
+                  <p className="section-label">Selected Project</p>
+                  <input
+                    aria-label="Selected project name"
+                    onChange={(event) => setEditProjectName(event.target.value)}
+                    value={editProjectName}
+                  />
+                  <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
+                    <input
+                      aria-label="Selected project path"
+                      onChange={(event) => setEditProjectPath(event.target.value)}
+                      value={editProjectPath}
+                    />
+                    {canChooseFolder ? (
+                      <button
+                        disabled={isSavingProject}
+                        onClick={chooseEditProjectFolder}
+                        type="button"
+                        title="Browse for project folder"
+                      >
+                        Browse
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="add-project-row">
+                    <input
+                      aria-label="Selected project branch"
+                      onChange={(event) => setEditProjectBranch(event.target.value)}
+                      value={editProjectBranch}
+                    />
+                    <button disabled={isSavingProject} type="submit" title="Save project">
+                      Save
+                    </button>
+                  </div>
+                  <button
+                    className="archive-project-button"
+                    disabled={isSavingProject}
+                    onClick={() => setProjectArchived(selectedProject, !selectedProject.archived)}
+                    type="button"
+                  >
+                    {selectedProject.archived ? 'Restore project' : 'Archive project'}
+                  </button>
+                </form>
+              ) : null}
+
+              <form className="data-store-panel" onSubmit={switchIssueData}>
+                <p className="section-label">Issue Data</p>
+                <code>{setupState.rootDir}</code>
+                <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
+                  <input
+                    aria-label="Issue data folder"
+                    onChange={(event) => setIssueDataPath(event.target.value)}
+                    value={issueDataPath}
+                  />
+                  {canChooseFolder ? (
+                    <button
+                      disabled={isSwitchingIssueData}
+                      onClick={chooseIssueDataFolder}
+                      type="button"
+                      title="Browse for issue data folder"
+                    >
+                      Browse
+                    </button>
+                  ) : null}
+                </div>
+                <button disabled={isSwitchingIssueData} type="submit">
+                  {isSwitchingIssueData ? 'Switching...' : 'Use folder'}
+                </button>
+              </form>
               <button
-                disabled={isSwitchingIssueData}
-                onClick={chooseIssueDataFolder}
+                className="codex-projects-button"
+                disabled
                 type="button"
-                title="Browse for issue data folder"
+                title="Codex project discovery needs a stable local Codex project source"
               >
-                Browse
+                Import Codex projects
               </button>
-            ) : null}
-          </div>
-          <button disabled={isSwitchingIssueData} type="submit">
-            {isSwitchingIssueData ? 'Switching...' : 'Use folder'}
-          </button>
-        </form>
+            </div>
+          ) : null}
+        </div>
 
         <div className={`sync-panel ${syncState.tone}`}>
           <p className="section-label">GitHub Sync</p>

@@ -180,6 +180,34 @@
   gap: 10px;
 }
 
+.sidebar-section-header,
+.project-sidebar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.project-settings-toggle {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.project-settings-toggle:hover,
+.project-settings-toggle[aria-expanded='true'] {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+
 .project-button {
   position: relative;
   display: grid;
@@ -225,10 +253,10 @@
 }
 
 .add-project-form,
-.edit-project-form {
+.edit-project-form,
+.project-settings-panel {
   display: grid;
   gap: 8px;
-  padding-top: 4px;
 }
 
 .show-archived-toggle {
@@ -243,14 +271,34 @@
   margin: 0;
 }
 
+.project-sidebar-actions > button,
+.codex-projects-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.project-sidebar-actions > button {
+  flex: 1;
+}
+
+.project-sidebar-actions > button[aria-expanded='true'] {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+
 .edit-project-form {
-  margin-top: 6px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  padding-top: 0;
 }
 
 .add-project-form input,
-.edit-project-form input {
+.edit-project-form input,
+.data-store-panel input {
   width: 100%;
   min-width: 0;
   height: 32px;
@@ -280,7 +328,8 @@
 }
 
 .add-project-form button,
-.edit-project-form button {
+.edit-project-form button,
+.data-store-panel button {
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--control);
@@ -300,9 +349,21 @@
 }
 
 .add-project-form button:disabled,
-.edit-project-form button:disabled {
+.edit-project-form button:disabled,
+.data-store-panel button:disabled {
   cursor: wait;
   opacity: 0.65;
+}
+
+.codex-projects-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.project-settings-panel {
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .data-store-panel {
@@ -316,24 +377,13 @@
   width: 100%;
 }
 
-.data-store-panel button {
-  min-height: 32px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--control);
-  color: var(--text-strong);
-  cursor: pointer;
-  font-size: 13px;
-}
-
 .data-store-panel > button {
   background: var(--text-strong);
   color: var(--surface);
 }
 
-.data-store-panel button:disabled {
-  cursor: wait;
-  opacity: 0.65;
+.codex-projects-button {
+  width: 100%;
 }
 
 .sync-panel {
