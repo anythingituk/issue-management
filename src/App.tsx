@@ -1647,6 +1647,7 @@ function App() {
           <img className="brand-mark" src="codex-companion-icon.png" alt="" aria-hidden="true" />
           <div>
             <p className="eyebrow brand-title">Codex Companion</p>
+            <p className="brand-subtitle">Control Center</p>
           </div>
         </div>
 
@@ -2474,8 +2475,12 @@ function App() {
           >
             <div className="modal-header">
               <div>
-                <p className="eyebrow">User Added</p>
-                <h2 id="add-issue-modal-title">Add Issue</h2>
+                <h2 id="add-issue-modal-title">Add task</h2>
+                <p className="modal-helper-text">
+                  Choose the category, such as Snag or Refactor, from the dropdown. Write out
+                  your prompt in the Prompt/Description box below. If you have set up a ChatGPT
+                  API key, you can ask AI to provide a short title.
+                </p>
               </div>
               <button
                 aria-label="Close add issue dialog"
@@ -2553,7 +2558,7 @@ function App() {
               <textarea
                 aria-label="Issue description"
                 onChange={(event) => setNewIssueDetail(event.target.value)}
-                placeholder="Description, context, acceptance notes, or the longer request"
+                placeholder="Type your prompt (or description of task) for Codex to pick up later"
                 rows={4}
                 value={newIssueDetail}
               />

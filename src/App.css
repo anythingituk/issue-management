@@ -200,9 +200,23 @@
 }
 
 .brand-title {
-  color: var(--companion-purple);
+  width: max-content;
+  background: linear-gradient(90deg, var(--companion-cyan) 0%, #0073fb 45%, var(--companion-purple) 100%);
+  background-clip: text;
+  color: transparent;
   font-size: clamp(13px, 0.9vw, 16px);
   line-height: 1.1;
+  -webkit-background-clip: text;
+}
+
+.brand-subtitle {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .sync-panel > .section-label,
@@ -1281,6 +1295,14 @@ button {
   line-height: 1;
 }
 
+.quick-add .quick-title-field button {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  font-size: 9px;
+  line-height: 1;
+}
+
 .quick-form-actions {
   grid-column: 1 / -1;
   display: flex;
@@ -1333,10 +1355,18 @@ button {
 }
 
 .modal-header h2 {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--text-strong);
   font-size: 22px;
   line-height: 1.15;
+}
+
+.modal-helper-text {
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .modal-close-button {
