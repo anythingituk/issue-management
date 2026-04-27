@@ -217,13 +217,14 @@ function App() {
   const [newIssueTitle, setNewIssueTitle] = useState('')
   const [newIssueDetail, setNewIssueDetail] = useState('')
   const [newIssueFile, setNewIssueFile] = useState('')
+  const [newIssueProjectId, setNewIssueProjectId] = useState('')
   const [newIssueCategory, setNewIssueCategory] = useState<IssueCategory>('snag')
   const [newIssuePriority, setNewIssuePriority] = useState<IssuePriority>('later')
+  const [isAddIssueModalOpen, setIsAddIssueModalOpen] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectPath, setNewProjectPath] = useState('')
   const [newProjectBranch, setNewProjectBranch] = useState('main')
   const [isAddingProject, setIsAddingProject] = useState(false)
-  const [showAddProjectForm, setShowAddProjectForm] = useState(false)
   const [editProjectName, setEditProjectName] = useState('')
   const [editProjectPath, setEditProjectPath] = useState('')
   const [editProjectBranch, setEditProjectBranch] = useState('')
@@ -386,6 +387,11 @@ function App() {
 
     setProjects(payload.projects)
     setSelectedProjectId((currentProjectId) =>
+      payload.projects.some((project) => project.id === currentProjectId)
+        ? currentProjectId
+        : payload.projects[0]?.id || '',
+    )
+    setNewIssueProjectId((currentProjectId) =>
       payload.projects.some((project) => project.id === currentProjectId)
         ? currentProjectId
         : payload.projects[0]?.id || '',
@@ -636,6 +642,23 @@ function App() {
     }
 
     return issues.filter((issue) => issue.status !== 'fixed').length
+  }
+
+  function resetNewIssueForm() {
+    setNewIssueTitle('')
+    setNewIssueDetail('')
+    setNewIssueFile('')
+    setNewIssueCategory('snag')
+    setNewIssuePriority('later')
+  }
+
+  function openAddIssueModal() {
+    setNewIssueProjectId(selectedProject?.id ?? projects[0]?.id ?? '')
+    setIsAddIssueModalOpen(true)
+  }
+
+  function closeAddIssueModal() {
+    setIsAddIssueModalOpen(false)
   }
 
   async function refreshSyncStatus() {
@@ -1021,14 +1044,16 @@ function App() {
     event.preventDefault()
 
     const title = newIssueTitle.trim()
-    if (!title || !selectedProject) {
+    const targetProject = projects.find((project) => project.id === newIssueProjectId) ?? selectedProject
+
+    if (!title || !targetProject) {
       return
     }
 
     try {
       const payload = await apiJson<{ issue: Issue }>('/api/issues', {
         body: JSON.stringify({
-          projectId: selectedProject.id,
+          projectId: targetProject.id,
           title,
           file: newIssueFile.trim(),
           category: newIssueCategory,
@@ -1039,14 +1064,14 @@ function App() {
         method: 'POST',
       })
 
-      setIssues((currentIssues) => [payload.issue, ...currentIssues])
+      if (targetProject.id === selectedProject?.id) {
+        setIssues((currentIssues) => [payload.issue, ...currentIssues])
+      }
       setSelectedIssueId(payload.issue.id)
-      setNewIssueTitle('')
-      setNewIssueDetail('')
-      setNewIssueFile('')
-      setNewIssueCategory('snag')
-      setNewIssuePriority('later')
+      resetNewIssueForm()
+      setIsAddIssueModalOpen(false)
       setAppError('')
+      await loadProjectList()
       await loadQueue()
       await refreshSyncStatus()
     } catch (error) {
@@ -1083,7 +1108,6 @@ function App() {
       setNewProjectName('')
       setNewProjectPath('')
       setNewProjectBranch('main')
-      setShowAddProjectForm(false)
       setAppError('')
       await loadQueue()
       await loadCodexProjects()
@@ -1631,13 +1655,13 @@ function App() {
             <p className="section-label projects-label">Projects</p>
             <button
               aria-expanded={showProjectSettings}
-              aria-label="Project settings"
+              aria-label="Add project"
               className="project-settings-toggle"
               onClick={() => setShowProjectSettings((isOpen) => !isOpen)}
-              title="Project settings"
+              title="Add project"
               type="button"
             >
-              ⚙
+              +
             </button>
           </div>
           <div className="project-list">
@@ -1678,13 +1702,6 @@ function App() {
             ))}
           </div>
           <div className="project-sidebar-actions">
-            <button
-              aria-expanded={showAddProjectForm}
-              onClick={() => setShowAddProjectForm((isOpen) => !isOpen)}
-              type="button"
-            >
-              {showAddProjectForm ? 'Cancel' : 'Add project'}
-            </button>
             <label className="show-archived-toggle">
               <input
                 checked={showArchivedProjects}
@@ -1694,45 +1711,6 @@ function App() {
               <span>Archived</span>
             </label>
           </div>
-          {showAddProjectForm ? (
-            <form className="add-project-form" onSubmit={addProject}>
-              <input
-                aria-label="Project name"
-                onChange={(event) => setNewProjectName(event.target.value)}
-                placeholder="Project name"
-                value={newProjectName}
-              />
-              <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
-                <input
-                  aria-label="Project path"
-                  onChange={(event) => setNewProjectPath(event.target.value)}
-                  placeholder="/mnt/c/dev/project"
-                  value={newProjectPath}
-                />
-                {canChooseFolder ? (
-                  <button
-                    disabled={isAddingProject}
-                    onClick={chooseNewProjectFolder}
-                    type="button"
-                    title="Browse for project folder"
-                  >
-                    Browse
-                  </button>
-                ) : null}
-              </div>
-              <div className="add-project-row">
-                <input
-                  aria-label="Project branch"
-                  onChange={(event) => setNewProjectBranch(event.target.value)}
-                  placeholder="main"
-                  value={newProjectBranch}
-                />
-                <button disabled={isAddingProject} type="submit" title="Add project">
-                  Add
-                </button>
-              </div>
-            </form>
-          ) : null}
 
           {selectedProject && openProjectSettingsId === selectedProject.id ? (
             <div className="project-local-settings">
@@ -1861,6 +1839,44 @@ function App() {
                   ) : null}
                 </div>
               </section>
+              <form className="add-project-form" onSubmit={addProject}>
+                <p className="section-label">Manual Add</p>
+                <input
+                  aria-label="Project name"
+                  onChange={(event) => setNewProjectName(event.target.value)}
+                  placeholder="Project name"
+                  value={newProjectName}
+                />
+                <div className={`path-input-row ${canChooseFolder ? 'with-browse' : ''}`}>
+                  <input
+                    aria-label="Project path"
+                    onChange={(event) => setNewProjectPath(event.target.value)}
+                    placeholder="/mnt/d/dev/project"
+                    value={newProjectPath}
+                  />
+                  {canChooseFolder ? (
+                    <button
+                      disabled={isAddingProject}
+                      onClick={chooseNewProjectFolder}
+                      type="button"
+                      title="Browse for project folder"
+                    >
+                      Browse
+                    </button>
+                  ) : null}
+                </div>
+                <div className="add-project-row">
+                  <input
+                    aria-label="Project branch"
+                    onChange={(event) => setNewProjectBranch(event.target.value)}
+                    placeholder="main"
+                    value={newProjectBranch}
+                  />
+                  <button disabled={isAddingProject} type="submit" title="Add project">
+                    {isAddingProject ? 'Adding' : 'Add'}
+                  </button>
+                </div>
+              </form>
             </div>
           ) : null}
         </div>
@@ -2018,6 +2034,16 @@ function App() {
             >
               ↻
             </button>
+            <button
+              aria-label="Add issue"
+              className="refresh-button add-issue-button"
+              disabled={!projects.length}
+              onClick={openAddIssueModal}
+              title="Add issue or snag"
+              type="button"
+            >
+              +
+            </button>
             <div className="view-switcher" aria-label="Issue views">
               <button
                 className={paneMode === 'workbench' ? 'active' : ''}
@@ -2162,89 +2188,6 @@ function App() {
               </div>
             </section>
           </div>
-        ) : paneMode === 'project' ? (
-          <form className="quick-add" onSubmit={addIssue}>
-            <div className="quick-title-field">
-              <input
-                aria-label="Issue title"
-                disabled={!selectedProject}
-                onChange={(event) => setNewIssueTitle(event.target.value)}
-                placeholder="Short title"
-                value={newIssueTitle}
-              />
-              <button
-                aria-label="Suggest title from description"
-                disabled={!selectedProject || !aiState.connected || !newIssueDetail.trim() || isSuggestingTitle}
-                onClick={suggestIssueTitle}
-                title={
-                  aiState.connected
-                    ? 'Suggest title from description'
-                    : 'Connect ChatGPT to suggest a title'
-                }
-                type="button"
-              >
-                {isSuggestingTitle ? '...' : 'AI'}
-              </button>
-            </div>
-            <input
-              aria-label="File path"
-              disabled={!selectedProject}
-              onChange={(event) => setNewIssueFile(event.target.value)}
-              placeholder="Optional file path"
-              value={newIssueFile}
-            />
-            <select
-              aria-label="Issue category"
-              disabled={!selectedProject}
-              onChange={(event) => setNewIssueCategory(event.target.value as IssueCategory)}
-              value={newIssueCategory}
-            >
-              {(Object.keys(categoryLabels) as IssueCategory[]).map((category) => (
-                <option key={category} value={category}>
-                  {categoryLabels[category]}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Issue priority"
-              disabled={!selectedProject}
-              onChange={(event) => setNewIssuePriority(event.target.value as IssuePriority)}
-              value={newIssuePriority}
-            >
-              {(Object.keys(priorityLabels) as IssuePriority[]).map((priority) => (
-                <option key={priority} value={priority}>
-                  {priorityLabels[priority]}
-                </option>
-              ))}
-            </select>
-            <textarea
-              aria-label="Issue description"
-              disabled={!selectedProject}
-              onChange={(event) => setNewIssueDetail(event.target.value)}
-              placeholder="Description, context, acceptance notes, or the longer request"
-              rows={3}
-              value={newIssueDetail}
-            />
-            <div className="quick-form-actions">
-              <button
-                className="quick-ai-assist-button"
-                disabled={
-                  !selectedProject ||
-                  !aiState.connected ||
-                  (!newIssueTitle.trim() && !newIssueDetail.trim()) ||
-                  isAssistingIssue
-                }
-                onClick={assistNewIssue}
-                title={aiState.connected ? 'Improve the draft issue' : 'Connect ChatGPT to use AI Assist'}
-                type="button"
-              >
-                {isAssistingIssue ? 'Assisting' : 'AI Assist'}
-              </button>
-              <button className="quick-save-button" disabled={!selectedProject} type="submit">
-                Save
-              </button>
-            </div>
-          </form>
         ) : null}
 
         {paneMode !== 'workbench' ? (
@@ -2520,6 +2463,129 @@ function App() {
           <p>{isLoading ? 'Loading issues...' : 'No issue selected.'}</p>
         )}
       </aside>
+      {isAddIssueModalOpen ? (
+        <div className="modal-backdrop" role="presentation" onMouseDown={closeAddIssueModal}>
+          <section
+            aria-labelledby="add-issue-modal-title"
+            aria-modal="true"
+            className="add-issue-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">User Added</p>
+                <h2 id="add-issue-modal-title">Add Issue</h2>
+              </div>
+              <button
+                aria-label="Close add issue dialog"
+                className="modal-close-button"
+                onClick={closeAddIssueModal}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <form className="quick-add modal-issue-form" onSubmit={addIssue}>
+              <label className="modal-project-field">
+                <span>Project</span>
+                <select
+                  aria-label="Project"
+                  onChange={(event) => setNewIssueProjectId(event.target.value)}
+                  value={newIssueProjectId}
+                >
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="quick-title-field">
+                <input
+                  aria-label="Issue title"
+                  onChange={(event) => setNewIssueTitle(event.target.value)}
+                  placeholder="Short title"
+                  value={newIssueTitle}
+                />
+                <button
+                  aria-label="Suggest title from description"
+                  disabled={!aiState.connected || !newIssueDetail.trim() || isSuggestingTitle}
+                  onClick={suggestIssueTitle}
+                  title={
+                    aiState.connected
+                      ? 'Suggest title from description'
+                      : 'Connect ChatGPT to suggest a title'
+                  }
+                  type="button"
+                >
+                  {isSuggestingTitle ? '...' : 'AI'}
+                </button>
+              </div>
+              <input
+                aria-label="File path"
+                onChange={(event) => setNewIssueFile(event.target.value)}
+                placeholder="Optional file path"
+                value={newIssueFile}
+              />
+              <select
+                aria-label="Issue category"
+                onChange={(event) => setNewIssueCategory(event.target.value as IssueCategory)}
+                value={newIssueCategory}
+              >
+                {(Object.keys(categoryLabels) as IssueCategory[]).map((category) => (
+                  <option key={category} value={category}>
+                    {categoryLabels[category]}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Issue priority"
+                onChange={(event) => setNewIssuePriority(event.target.value as IssuePriority)}
+                value={newIssuePriority}
+              >
+                {(Object.keys(priorityLabels) as IssuePriority[]).map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priorityLabels[priority]}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                aria-label="Issue description"
+                onChange={(event) => setNewIssueDetail(event.target.value)}
+                placeholder="Description, context, acceptance notes, or the longer request"
+                rows={4}
+                value={newIssueDetail}
+              />
+              <div className="quick-form-actions">
+                <button
+                  className="quick-ai-assist-button"
+                  disabled={
+                    !aiState.connected ||
+                    (!newIssueTitle.trim() && !newIssueDetail.trim()) ||
+                    isAssistingIssue
+                  }
+                  onClick={assistNewIssue}
+                  title={aiState.connected ? 'Improve the draft issue' : 'Connect ChatGPT to use AI Assist'}
+                  type="button"
+                >
+                  {isAssistingIssue ? 'Assisting' : 'AI Assist'}
+                </button>
+                <button className="modal-secondary-button" onClick={closeAddIssueModal} type="button">
+                  Cancel
+                </button>
+                <button
+                  className="quick-save-button"
+                  disabled={!newIssueProjectId || !newIssueTitle.trim()}
+                  type="submit"
+                >
+                  Save
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
       {toast ? (
         <div className={`app-toast ${toast.tone}`} role="status">
           <button
