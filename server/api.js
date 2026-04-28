@@ -13,10 +13,22 @@ const execFileAsync = promisify(execFile)
 let configuredRootDir = process.env.ISSUE_ROOT_DIR
   ? path.resolve(process.env.ISSUE_ROOT_DIR)
   : undefined
+let automationRun = null
+let automationChild = null
+let automationCancelRequested = false
+
+const automationPolicies = new Set([
+  'approved-or-soon',
+  'approved-only',
+  'soon-only',
+  'codex-or-approved-user',
+  'all',
+])
 
 const statusLabels = {
   open: 'Open',
   'in-progress': 'In progress',
+  'ready-for-review': 'Ready for review',
   fixed: 'Fixed',
   deferred: 'Deferred',
 }
@@ -190,6 +202,36 @@ function projectIssuePath(project) {
   return path.join(getIssuesDir(), project.issueFile ?? `${project.id}.json`)
 }
 
+function resolveProjectCwd(projectPath) {
+  const rawPath = String(projectPath ?? '').trim()
+  if (!rawPath) {
+    return ''
+  }
+
+  if (existsSync(rawPath)) {
+    return rawPath
+  }
+
+  const wslMatch = rawPath.match(/^\/mnt\/([a-z])\/(.+)$/i)
+  if (wslMatch) {
+    const windowsPath = `${wslMatch[1].toUpperCase()}:\\${wslMatch[2].replaceAll('/', '\\')}`
+    if (existsSync(windowsPath)) {
+      return windowsPath
+    }
+  }
+
+  return rawPath
+}
+
+function truncateOutput(value, maxLength = 4000) {
+  const output = String(value ?? '').trim()
+  if (output.length <= maxLength) {
+    return output
+  }
+
+  return `${output.slice(0, maxLength)}\n...output truncated...`
+}
+
 async function readProjectIssues(project) {
   try {
     const issueFile = await readJson(projectIssuePath(project))
@@ -214,6 +256,27 @@ async function writeProjectIssues(project, issues) {
     projectId: project.id,
     issues,
   })
+}
+
+async function updateIssueRecord(issueId, updater) {
+  const projects = await readProjects()
+
+  for (const project of projects) {
+    const issues = await readProjectIssues(project)
+    const issueIndex = issues.findIndex((issue) => issue.id === issueId)
+
+    if (issueIndex === -1) {
+      continue
+    }
+
+    const nextIssue = updater(issues[issueIndex], project)
+    const nextIssues = [...issues]
+    nextIssues[issueIndex] = nextIssue
+    await writeProjectIssues(project, nextIssues)
+    return { issue: nextIssue, project }
+  }
+
+  return undefined
 }
 
 async function readRequestJson(request) {
@@ -854,7 +917,7 @@ async function getQueue(response) {
   }
 
   queue.sort((left, right) => {
-    const statusWeight = { 'in-progress': 0, open: 1, deferred: 2, fixed: 3 }
+    const statusWeight = { 'in-progress': 0, open: 1, 'ready-for-review': 2, deferred: 3, fixed: 4 }
     const leftWeight = statusWeight[left.status] ?? 4
     const rightWeight = statusWeight[right.status] ?? 4
 
@@ -874,6 +937,307 @@ async function getQueue(response) {
   })
 
   sendJson(response, 200, { issues: queue })
+}
+
+function automationPolicyAllowsIssue(issue, policy) {
+  if (policy === 'all') {
+    return true
+  }
+
+  if (policy === 'approved-only') {
+    return issue.decision === 'approved'
+  }
+
+  if (policy === 'soon-only') {
+    return issue.priority === 'soon'
+  }
+
+  if (policy === 'codex-or-approved-user') {
+    return issue.source === 'Codex' || issue.decision === 'approved'
+  }
+
+  return issue.decision === 'approved' || issue.priority === 'soon'
+}
+
+async function getNextAutomationIssue(policy = 'approved-or-soon') {
+  const projects = await readProjects()
+  const candidates = []
+
+  for (const project of projects) {
+    if (project.archived) {
+      continue
+    }
+
+    const issues = await readProjectIssues(project)
+    for (const issue of issues) {
+      if (
+        issue.status === 'fixed' ||
+        issue.decision === 'ignored' ||
+        issue.automationCompletedAt ||
+        !automationPolicyAllowsIssue(issue, policy)
+      ) {
+        continue
+      }
+
+      candidates.push({ issue, project })
+    }
+  }
+
+  candidates.sort((left, right) => {
+    const priorityWeight = { soon: 0, later: 1 }
+    const statusWeight = { 'in-progress': 0, open: 1, 'ready-for-review': 2, deferred: 3, fixed: 4 }
+    const sourceWeight = { Codex: 0, User: 1 }
+    const decisionWeight = { approved: 0, waiting: 1, ignored: 2 }
+    const leftIssue = left.issue
+    const rightIssue = right.issue
+
+    return (
+      (priorityWeight[leftIssue.priority] ?? 1) - (priorityWeight[rightIssue.priority] ?? 1) ||
+      (statusWeight[leftIssue.status] ?? 4) - (statusWeight[rightIssue.status] ?? 4) ||
+      (decisionWeight[leftIssue.decision] ?? 1) - (decisionWeight[rightIssue.decision] ?? 1) ||
+      (sourceWeight[leftIssue.source] ?? 1) - (sourceWeight[rightIssue.source] ?? 1) ||
+      new Date(leftIssue.createdAt).getTime() - new Date(rightIssue.createdAt).getTime()
+    )
+  })
+
+  return candidates[0]
+}
+
+async function getAutomationIssueById(issueId) {
+  const projects = await readProjects()
+
+  for (const project of projects) {
+    if (project.archived) {
+      continue
+    }
+
+    const issues = await readProjectIssues(project)
+    const issue = issues.find((item) => item.id === issueId)
+    if (issue) {
+      return { issue, project }
+    }
+  }
+
+  return undefined
+}
+
+function buildCodexAutomationPrompt(issue, project) {
+  return [
+    `You are working from Codex Companion task ${issue.id}.`,
+    `Project: ${project.name}`,
+    `Category: ${categoryLabels[issue.category] ?? issue.category}`,
+    `Priority: ${priorityLabels[issue.priority ?? 'later'] ?? 'Action later'}`,
+    `Source: ${issue.source}`,
+    issue.file ? `Relevant location: ${issue.file}` : '',
+    '',
+    `Task title: ${issue.title}`,
+    '',
+    `Task details:\n${issue.detail}`,
+    '',
+    'Check whether this task is actionable in the current repository.',
+    'If it is actionable, implement the smallest safe change that addresses it.',
+    'Run focused validation where reasonable.',
+    'Do not create commits.',
+    'Finish by summarizing what changed, what was validated, and any remaining follow-up.',
+  ].filter(Boolean).join('\n')
+}
+
+function automationStatus(response) {
+  sendJson(response, 200, {
+    running: automationRun?.status === 'running' || automationRun?.status === 'canceling',
+    run: automationRun,
+  })
+}
+
+function cancelAutomation(response) {
+  if (!automationRun || automationRun.status !== 'running' || !automationChild) {
+    sendError(response, 409, 'No Codex automation run is active.')
+    return
+  }
+
+  automationCancelRequested = true
+  automationRun = {
+    ...automationRun,
+    status: 'canceling',
+  }
+  automationChild.kill()
+  sendJson(response, 202, {
+    message: 'Cancel requested for Codex automation.',
+    run: automationRun,
+    running: true,
+  })
+}
+
+async function runAutomationNext(response, request) {
+  if (automationRun?.status === 'running' || automationRun?.status === 'canceling') {
+    sendError(response, 409, 'Codex automation is already running.')
+    return
+  }
+
+  const body = await readRequestJson(request)
+  const policy = automationPolicies.has(body.policy) ? body.policy : 'approved-or-soon'
+  const next = await getNextAutomationIssue(policy)
+  if (!next) {
+    sendJson(response, 200, {
+      message: 'No queued tasks are ready for Codex automation.',
+      running: false,
+    })
+    return
+  }
+
+  await startAutomationRun(response, next.issue, next.project, policy)
+}
+
+async function retryAutomation(response, request) {
+  if (automationRun?.status === 'running' || automationRun?.status === 'canceling') {
+    sendError(response, 409, 'Codex automation is already running.')
+    return
+  }
+
+  const body = await readRequestJson(request)
+  const issueId = String(body.issueId ?? '').trim()
+  if (!issueId) {
+    sendError(response, 400, 'Missing issue id for retry.')
+    return
+  }
+
+  const match = await getAutomationIssueById(issueId)
+  if (!match) {
+    sendError(response, 404, 'Issue not found.')
+    return
+  }
+
+  if (match.issue.status === 'fixed' || match.issue.decision === 'ignored') {
+    sendError(response, 409, 'This task is no longer eligible for automation.')
+    return
+  }
+
+  const policy = automationPolicies.has(body.policy) ? body.policy : automationRun?.policy ?? 'approved-or-soon'
+  await startAutomationRun(response, match.issue, match.project, policy, true)
+}
+
+async function startAutomationRun(response, issue, project, policy, isRetry = false) {
+  const cwd = resolveProjectCwd(project.path)
+
+  if (!cwd || !existsSync(cwd)) {
+    sendError(response, 409, `Project folder does not exist on this machine: ${project.path}`)
+    return
+  }
+
+  const preflightStatus = await runGitIn(cwd, ['status', '--short'])
+  if (!preflightStatus.ok) {
+    sendError(response, 409, preflightStatus.output || `Unable to inspect Git status for ${project.path}.`)
+    return
+  }
+
+  if (preflightStatus.output) {
+    sendError(
+      response,
+      409,
+      `Project has local file changes. Review or sync them before starting automation:\n${truncateOutput(preflightStatus.output, 1200)}`,
+    )
+    return
+  }
+
+  const startedAt = new Date().toISOString()
+  const prompt = buildCodexAutomationPrompt(issue, project)
+  const args = [
+    'exec',
+    '--cd',
+    cwd,
+    '--sandbox',
+    'workspace-write',
+    '--ask-for-approval',
+    'never',
+    prompt,
+  ]
+
+  const startedRecord = await updateIssueRecord(issue.id, (currentIssue) => ({
+    ...currentIssue,
+    decision: 'approved',
+    priority: currentIssue.priority ?? 'later',
+    status: 'in-progress',
+    activity: [
+      `Codex automation ${isRetry ? 'retried' : 'started'} for ${project.name}.`,
+      ...(Array.isArray(currentIssue.activity) ? currentIssue.activity : []),
+    ],
+  }))
+
+  if (!startedRecord) {
+    sendError(response, 404, 'Issue not found.')
+    return
+  }
+
+  automationRun = {
+    issueId: issue.id,
+    policy,
+    projectId: project.id,
+    projectName: project.name,
+    projectPath: project.path,
+    startedAt,
+    status: 'running',
+    title: issue.title,
+  }
+
+  automationCancelRequested = false
+  automationChild = execFile('codex', args, {
+    cwd,
+    env: process.env,
+    shell: true,
+    timeout: Number(process.env.CODEX_COMPANION_AUTOMATION_TIMEOUT_MS ?? 900000),
+  }, async (error, stdout, stderr) => {
+    const finishedAt = new Date().toISOString()
+    const output = truncateOutput([stdout, stderr].filter(Boolean).join('\n'))
+    const canceled = automationCancelRequested
+    const ok = !error && !canceled
+    const gitStatus = ok ? await runGitIn(cwd, ['status', '--short']) : undefined
+    const changedFiles = ok && gitStatus?.ok
+      ? truncateOutput(gitStatus.output || 'No local file changes.', 3000)
+      : ''
+    const summary = canceled
+      ? 'Codex automation canceled by user.'
+      : ok
+      ? 'Codex automation completed and is ready for review. Review the project changes and mark the task fixed when confirmed.'
+      : `Codex automation failed: ${error.message}`
+
+    await updateIssueRecord(issue.id, (currentIssue) => ({
+      ...currentIssue,
+      automationChangedFiles: ok ? changedFiles : currentIssue.automationChangedFiles,
+      automationCompletedAt: ok ? finishedAt : currentIssue.automationCompletedAt,
+      status: ok ? 'ready-for-review' : 'open',
+      activity: [
+        summary,
+        ...(changedFiles ? [`Changed files:\n${changedFiles}`] : []),
+        ...(output ? [`Codex output:\n${output}`] : []),
+        ...(Array.isArray(currentIssue.activity) ? currentIssue.activity : []),
+      ],
+    })).catch((updateError) => {
+      console.error('Unable to update automation issue:', updateError)
+    })
+
+    automationRun = {
+      ...automationRun,
+      changedFiles,
+      finishedAt,
+      output,
+      status: canceled ? 'canceled' : ok ? 'completed' : 'failed',
+    }
+    automationChild = null
+    automationCancelRequested = false
+
+    setTimeout(() => {
+      if (automationRun?.issueId === issue.id && automationRun.finishedAt === finishedAt) {
+        automationRun = null
+      }
+    }, 300000)
+  })
+
+  sendJson(response, 202, {
+    issue: startedRecord.issue,
+    message: `${isRetry ? 'Retried' : 'Started'} Codex automation for ${issue.title}.`,
+    run: automationRun,
+    running: true,
+  })
 }
 
 async function addIssue(response, request) {
@@ -1257,6 +1621,26 @@ async function route(request, response) {
 
   if (request.method === 'GET' && url.pathname === '/api/queue') {
     await getQueue(response)
+    return
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/automation/status') {
+    automationStatus(response)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/automation/run-next') {
+    await runAutomationNext(response, request)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/automation/retry') {
+    await retryAutomation(response, request)
+    return
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/automation/cancel') {
+    cancelAutomation(response)
     return
   }
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, FormEvent, PointerEvent } from 'react'
 import './App.css'
 
-type IssueStatus = 'open' | 'in-progress' | 'fixed' | 'deferred'
+type IssueStatus = 'open' | 'in-progress' | 'ready-for-review' | 'fixed' | 'deferred'
 type IssueSource = 'Codex' | 'User'
 type IssueCategory = 'bug' | 'snag' | 'feature' | 'refactor' | 'docs' | 'testing' | 'question'
 type IssueDecision = 'approved' | 'waiting' | 'ignored'
@@ -12,6 +12,7 @@ type CategoryFilter = IssueCategory | 'all'
 type SourceFilter = IssueSource | 'all'
 type SyncAction = 'pull' | 'push' | 'all'
 type ResizePane = 'project' | 'detail'
+type AutomationPolicy = 'approved-or-soon' | 'approved-only' | 'soon-only' | 'codex-or-approved-user' | 'all'
 type Toast = {
   id: string
   message: string
@@ -33,6 +34,14 @@ const appVersion = import.meta.env.VITE_APP_VERSION ?? '0.1.0'
 const releaseChannel = import.meta.env.VITE_RELEASE_CHANNEL ?? 'ALPHA'
 const minimumIssuePaneWidth = 560
 const resizeHandleWidth = 12
+const automationIntervals = [5, 15, 30, 60] as const
+const automationPolicyLabels: Record<AutomationPolicy, string> = {
+  'approved-or-soon': 'Approved or soon',
+  'approved-only': 'Approved only',
+  'soon-only': 'Action soon only',
+  'codex-or-approved-user': 'Codex or approved user',
+  all: 'All queued tasks',
+}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
@@ -45,6 +54,33 @@ function readStoredWidth(key: string, fallback: number, min: number, max: number
 
   const value = Number(window.localStorage.getItem(key))
   return Number.isFinite(value) ? clamp(value, min, max) : fallback
+}
+
+function readStoredBoolean(key: string, fallback: boolean) {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+
+  const value = window.localStorage.getItem(key)
+  return value === null ? fallback : value === 'true'
+}
+
+function readStoredInterval(key: string, fallback: number) {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+
+  const value = Number(window.localStorage.getItem(key))
+  return automationIntervals.includes(value as (typeof automationIntervals)[number]) ? value : fallback
+}
+
+function readStoredAutomationPolicy(key: string, fallback: AutomationPolicy) {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+
+  const value = window.localStorage.getItem(key) as AutomationPolicy | null
+  return value && automationPolicyLabels[value] ? value : fallback
 }
 
 type Project = {
@@ -70,6 +106,8 @@ type Issue = {
   id: string
   projectId: string
   createdAt: string
+  automationChangedFiles?: string
+  automationCompletedAt?: string
   title: string
   file?: string
   status: IssueStatus
@@ -116,6 +154,20 @@ type AiIssueSuggestion = {
   priority: IssuePriority
 }
 
+type AutomationRun = {
+  changedFiles?: string
+  finishedAt?: string
+  issueId: string
+  output?: string
+  policy?: AutomationPolicy
+  projectId: string
+  projectName: string
+  projectPath: string
+  startedAt: string
+  status: 'running' | 'canceling' | 'completed' | 'failed' | 'canceled'
+  title: string
+}
+
 type SetupState = {
   configured: boolean
   dataDir: string
@@ -138,6 +190,7 @@ declare global {
 const statusLabels: Record<IssueStatus, string> = {
   open: 'Open',
   'in-progress': 'In progress',
+  'ready-for-review': 'Ready for review',
   fixed: 'Fixed',
   deferred: 'Deferred',
 }
@@ -286,6 +339,17 @@ function App() {
   const [syncHistory, setSyncHistory] = useState<SyncEvent[]>([])
   const [sshPassphrase, setSshPassphrase] = useState('')
   const [pendingSshAction, setPendingSshAction] = useState<SyncAction | null>(null)
+  const [automationRun, setAutomationRun] = useState<AutomationRun | null>(null)
+  const [isStartingAutomation, setIsStartingAutomation] = useState(false)
+  const [isAutoRunEnabled, setIsAutoRunEnabled] = useState(() =>
+    readStoredBoolean('codex-companion-auto-run-enabled', false),
+  )
+  const [autoRunIntervalMinutes, setAutoRunIntervalMinutes] = useState(() =>
+    readStoredInterval('codex-companion-auto-run-interval-minutes', 15),
+  )
+  const [automationPolicy, setAutomationPolicy] = useState<AutomationPolicy>(() =>
+    readStoredAutomationPolicy('codex-companion-automation-policy', 'approved-or-soon'),
+  )
   const [toast, setToast] = useState<Toast | null>(null)
 
   function showToast(toastContent: Omit<Toast, 'id'>) {
@@ -427,6 +491,11 @@ function App() {
     setAiState(payload)
   }
 
+  async function loadAutomationStatus() {
+    const payload = await apiJson<{ run: AutomationRun | null; running: boolean }>('/api/automation/status')
+    setAutomationRun(payload.run ?? null)
+  }
+
   useEffect(() => {
     let ignore = false
     setCanChooseFolder(Boolean(window.codexCompanion?.chooseFolder || window.codexCompanion?.chooseIssueFolder))
@@ -447,6 +516,7 @@ function App() {
           await loadQueue()
           await loadCodexProjects()
           await loadAiStatus()
+          await loadAutomationStatus()
         } else {
           setProjects([])
           setIssues([])
@@ -455,6 +525,7 @@ function App() {
           setSelectedProjectId('')
           setSelectedIssueId('')
           setAiState({ connected: false })
+          setAutomationRun(null)
         }
       } catch (error) {
         if (!ignore) {
@@ -518,6 +589,19 @@ function App() {
       ignore = true
     }
   }, [selectedProjectId])
+
+  useEffect(() => {
+    if (automationRun?.status !== 'running') {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      loadAutomationStatus().catch(() => undefined)
+      loadQueue().catch(() => undefined)
+    }, 5000)
+
+    return () => window.clearInterval(intervalId)
+  }, [automationRun?.status])
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
   const selectedQueueIssue = queueIssues.find((issue) => issue.id === selectedIssueId)
@@ -611,6 +695,76 @@ function App() {
     () => queueIssues.filter((issue) => issue.source === 'Codex').slice(0, 8),
     [queueIssues],
   )
+  const nextAutomationIssue = useMemo(() => {
+    const priorityWeight: Record<IssuePriority, number> = { soon: 0, later: 1 }
+    const statusWeight: Record<IssueStatus, number> = {
+      'in-progress': 0,
+      open: 1,
+      'ready-for-review': 2,
+      deferred: 3,
+      fixed: 4,
+    }
+    const decisionWeight: Record<IssueDecision, number> = { approved: 0, waiting: 1, ignored: 2 }
+    const sourceWeight: Record<IssueSource, number> = { Codex: 0, User: 1 }
+    const policyAllowsIssue = (issue: QueueIssue) => {
+      if (automationPolicy === 'all') {
+        return true
+      }
+      if (automationPolicy === 'approved-only') {
+        return issue.decision === 'approved'
+      }
+      if (automationPolicy === 'soon-only') {
+        return issue.priority === 'soon'
+      }
+      if (automationPolicy === 'codex-or-approved-user') {
+        return issue.source === 'Codex' || issue.decision === 'approved'
+      }
+
+      return issue.decision === 'approved' || issue.priority === 'soon'
+    }
+
+    return [...queueIssues]
+      .filter(
+        (issue) =>
+          issue.status !== 'fixed' &&
+          issue.decision !== 'ignored' &&
+          !issue.automationCompletedAt &&
+          policyAllowsIssue(issue),
+      )
+      .sort(
+        (left, right) =>
+          priorityWeight[left.priority ?? 'later'] - priorityWeight[right.priority ?? 'later'] ||
+          statusWeight[left.status] - statusWeight[right.status] ||
+          decisionWeight[left.decision ?? 'waiting'] - decisionWeight[right.decision ?? 'waiting'] ||
+          sourceWeight[left.source] - sourceWeight[right.source] ||
+          new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+      )[0]
+  }, [automationPolicy, queueIssues])
+
+  useEffect(() => {
+    if (
+      !isAutoRunEnabled ||
+      !nextAutomationIssue ||
+      automationRun?.status === 'running' ||
+      isStartingAutomation
+    ) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) {
+        runNextAutomationTask({ quiet: true })
+      }
+    }, autoRunIntervalMinutes * 60 * 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [
+    autoRunIntervalMinutes,
+    automationRun?.status,
+    isAutoRunEnabled,
+    isStartingAutomation,
+    nextAutomationIssue?.id,
+  ])
 
   const selectedIssue =
     filteredIssues.find((issue) => issue.id === selectedIssueId) ??
@@ -659,6 +813,21 @@ function App() {
 
   function closeAddIssueModal() {
     setIsAddIssueModalOpen(false)
+  }
+
+  function setAutoRunEnabled(nextValue: boolean) {
+    setIsAutoRunEnabled(nextValue)
+    window.localStorage.setItem('codex-companion-auto-run-enabled', String(nextValue))
+  }
+
+  function setStoredAutoRunInterval(nextValue: number) {
+    setAutoRunIntervalMinutes(nextValue)
+    window.localStorage.setItem('codex-companion-auto-run-interval-minutes', String(nextValue))
+  }
+
+  function setStoredAutomationPolicy(nextValue: AutomationPolicy) {
+    setAutomationPolicy(nextValue)
+    window.localStorage.setItem('codex-companion-automation-policy', nextValue)
   }
 
   async function refreshSyncStatus() {
@@ -987,6 +1156,96 @@ function App() {
     }
   }
 
+  async function runNextAutomationTask(options: { quiet?: boolean } = {}) {
+    setIsStartingAutomation(true)
+
+    try {
+      const payload = await apiJson<{ run?: AutomationRun; message: string; running: boolean }>(
+        '/api/automation/run-next',
+        {
+          body: JSON.stringify({ policy: automationPolicy }),
+          method: 'POST',
+        },
+      )
+
+      setAutomationRun(payload.run ?? null)
+      await loadQueue()
+      setAppError('')
+      if (!options.quiet || payload.running) {
+        showToast({
+          message: payload.message,
+          title: payload.running ? 'Codex automation started' : 'No task ready',
+          tone: payload.running ? 'success' : 'info',
+        })
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to start Codex automation.'
+      setAppError(message)
+      if (!options.quiet) {
+        showToast({
+          message,
+          title: 'Automation failed',
+          tone: 'warning',
+        })
+      }
+    } finally {
+      setIsStartingAutomation(false)
+    }
+  }
+
+  async function cancelAutomationRun() {
+    try {
+      const payload = await apiJson<{ run?: AutomationRun; message: string; running: boolean }>(
+        '/api/automation/cancel',
+        { method: 'POST' },
+      )
+      setAutomationRun(payload.run ?? null)
+      showToast({
+        message: payload.message,
+        title: 'Automation cancel requested',
+        tone: 'info',
+      })
+    } catch (error) {
+      showToast({
+        message: error instanceof Error ? error.message : 'Unable to cancel Codex automation.',
+        title: 'Cancel failed',
+        tone: 'warning',
+      })
+    }
+  }
+
+  async function retryAutomationRun() {
+    if (!automationRun) {
+      return
+    }
+
+    setIsStartingAutomation(true)
+    try {
+      const payload = await apiJson<{ run?: AutomationRun; message: string; running: boolean }>(
+        '/api/automation/retry',
+        {
+          body: JSON.stringify({ issueId: automationRun.issueId, policy: automationRun.policy ?? automationPolicy }),
+          method: 'POST',
+        },
+      )
+      setAutomationRun(payload.run ?? null)
+      await loadQueue()
+      showToast({
+        message: payload.message,
+        title: 'Codex automation retried',
+        tone: 'success',
+      })
+    } catch (error) {
+      showToast({
+        message: error instanceof Error ? error.message : 'Unable to retry Codex automation.',
+        title: 'Retry failed',
+        tone: 'warning',
+      })
+    } finally {
+      setIsStartingAutomation(false)
+    }
+  }
+
   async function saveIssueDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -1257,6 +1516,7 @@ function App() {
       await Promise.all([
         selectedProjectId ? refreshSelectedProject() : loadProjectList(),
         loadCodexProjects(),
+        loadAutomationStatus(),
         refreshSyncStatus(),
       ])
       setAppError('')
@@ -2159,6 +2419,116 @@ function App() {
               </div>
             </section>
 
+            <section className="automation-card">
+              <div className="queue-card-header">
+                <div>
+                  <h3>Codex Automation</h3>
+                  <p>
+                    {automationRun
+                      ? `${automationRun.status} · ${automationRun.projectName}`
+                      : nextAutomationIssue
+                        ? `${nextAutomationIssue.projectName} · ${categoryLabels[nextAutomationIssue.category]}`
+                        : 'No ready tasks'}
+                  </p>
+                </div>
+                <span>{automationRun?.status ?? 'Ready'}</span>
+              </div>
+              <div className="automation-card-body">
+                <div>
+                  <p className="section-label">Next task</p>
+                  <strong>{automationRun?.title ?? nextAutomationIssue?.title ?? 'Queue is clear'}</strong>
+                  <span>
+                    {automationRun
+                      ? `${automationRun.finishedAt ? 'Finished' : 'Started'} ${formatTime(automationRun.finishedAt ?? automationRun.startedAt)}`
+                      : nextAutomationIssue
+                        ? `${nextAutomationIssue.source} · ${priorityLabels[nextAutomationIssue.priority ?? 'later']} · ${automationPolicyLabels[automationPolicy]}`
+                        : `No tasks match ${automationPolicyLabels[automationPolicy].toLowerCase()}.`}
+                  </span>
+                </div>
+                <div className="automation-actions">
+                  <button
+                    disabled={
+                      isStartingAutomation ||
+                      automationRun?.status === 'running' ||
+                      automationRun?.status === 'canceling' ||
+                      !nextAutomationIssue
+                    }
+                    onClick={() => runNextAutomationTask()}
+                    type="button"
+                  >
+                    {automationRun?.status === 'running' || automationRun?.status === 'canceling'
+                      ? 'Running'
+                      : isStartingAutomation
+                        ? 'Starting'
+                        : 'Run next task'}
+                  </button>
+                  {automationRun?.status === 'running' || automationRun?.status === 'canceling' ? (
+                    <button
+                      className="automation-cancel-button"
+                      disabled={automationRun.status === 'canceling'}
+                      onClick={cancelAutomationRun}
+                      type="button"
+                    >
+                      {automationRun.status === 'canceling' ? 'Canceling' : 'Cancel run'}
+                    </button>
+                  ) : null}
+                  {automationRun?.status === 'failed' || automationRun?.status === 'canceled' ? (
+                    <button
+                      disabled={isStartingAutomation}
+                      onClick={retryAutomationRun}
+                      type="button"
+                    >
+                      {isStartingAutomation ? 'Retrying' : 'Retry run'}
+                    </button>
+                  ) : null}
+                  <label className="auto-run-interval">
+                    <span>Policy</span>
+                    <select
+                      disabled={automationRun?.status === 'running' || automationRun?.status === 'canceling'}
+                      onChange={(event) => setStoredAutomationPolicy(event.target.value as AutomationPolicy)}
+                      value={automationPolicy}
+                    >
+                      {(Object.keys(automationPolicyLabels) as AutomationPolicy[]).map((policy) => (
+                        <option key={policy} value={policy}>
+                          {automationPolicyLabels[policy]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="auto-run-toggle">
+                    <input
+                      checked={isAutoRunEnabled}
+                      onChange={(event) => setAutoRunEnabled(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>Auto-run while open</span>
+                  </label>
+                  <label className="auto-run-interval">
+                    <span>Every</span>
+                    <select
+                      disabled={!isAutoRunEnabled}
+                      onChange={(event) => setStoredAutoRunInterval(Number(event.target.value))}
+                      value={autoRunIntervalMinutes}
+                    >
+                      {automationIntervals.map((minutes) => (
+                        <option key={minutes} value={minutes}>
+                          {minutes} min
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+              {automationRun?.changedFiles ? (
+                <pre className={`automation-output changed-files ${automationRun.status}`}>
+                  {`Changed files:\n${automationRun.changedFiles}`}
+                </pre>
+              ) : null}
+              {automationRun?.output ? (
+                <pre className={`automation-output ${automationRun.status}`}>{automationRun.output}</pre>
+              ) : null}
+            </section>
+
             <section className="sync-history-card">
               <div className="queue-card-header">
                 <div>
@@ -2437,6 +2807,27 @@ function App() {
                 {isSavingIssue ? 'Saving...' : 'Save changes'}
               </button>
             </form>
+
+            {selectedIssue.status === 'ready-for-review' ? (
+              <div className="review-card">
+                <p className="section-label">Review required</p>
+                <p>
+                  Codex automation has finished. Review the project changes, then mark this task
+                  fixed when the result is confirmed.
+                </p>
+                {selectedIssue.automationChangedFiles ? (
+                  <pre>{selectedIssue.automationChangedFiles}</pre>
+                ) : null}
+                <div>
+                  <button onClick={() => updateStatus(selectedIssue.id, 'fixed')} type="button">
+                    Mark fixed
+                  </button>
+                  <button onClick={() => updateStatus(selectedIssue.id, 'open')} type="button">
+                    Reopen
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="status-controls" aria-label="Set issue status">
               {(Object.keys(statusLabels) as IssueStatus[]).map((status) => (

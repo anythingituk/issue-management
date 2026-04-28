@@ -1020,7 +1020,8 @@ button {
 }
 
 .queue-card,
-.sync-history-card {
+.sync-history-card,
+.automation-card {
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1150,6 +1151,126 @@ button {
 
 .sync-history-card {
   grid-column: 1 / -1;
+}
+
+.automation-card {
+  grid-column: 1 / -1;
+}
+
+.automation-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, auto);
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px 16px;
+}
+
+.automation-card-body > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.automation-card-body strong,
+.automation-card-body span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-card-body strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.automation-card-body span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.automation-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: stretch;
+}
+
+.automation-card-body button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--focus);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text-strong);
+  cursor: pointer;
+  font-weight: 700;
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+
+.automation-card-body button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.automation-card-body .automation-cancel-button {
+  border-color: rgba(255, 92, 115, 0.45);
+  box-shadow: none;
+}
+
+.auto-run-toggle,
+.auto-run-interval {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.auto-run-toggle input {
+  margin: 0;
+}
+
+.auto-run-interval {
+  justify-content: space-between;
+}
+
+.auto-run-interval select {
+  min-width: 86px;
+  max-width: 180px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text-strong);
+  font: inherit;
+}
+
+.auto-run-interval select:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.automation-output {
+  overflow: auto;
+  max-height: 180px;
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(8, 13, 18, 0.58);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.automation-output.failed,
+.automation-output.canceled {
+  color: var(--red);
+}
+
+.automation-output.changed-files {
+  color: var(--text-strong);
 }
 
 .sync-history-grid {
@@ -1509,6 +1630,12 @@ button {
   color: var(--blue);
 }
 
+.issue-row.ready-for-review .status-glyph,
+.status-pill.ready-for-review {
+  background: rgba(46, 234, 242, 0.16);
+  color: var(--companion-cyan);
+}
+
 .issue-row.fixed .status-glyph,
 .status-pill.fixed {
   background: var(--green-soft);
@@ -1527,6 +1654,10 @@ button {
 
 .issue-row.in-progress .status-glyph {
   background: var(--blue);
+}
+
+.issue-row.ready-for-review .status-glyph {
+  background: var(--companion-cyan);
 }
 
 .issue-row.fixed .status-glyph {
@@ -1893,7 +2024,7 @@ code {
 
 .status-controls {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
   gap: 8px;
 }
 
@@ -1906,6 +2037,47 @@ code {
   border-color: var(--focus);
   color: var(--text-strong);
   box-shadow: 0 0 0 3px var(--focus-soft);
+}
+
+.review-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(46, 234, 242, 0.34);
+  border-radius: 8px;
+  background: rgba(46, 234, 242, 0.08);
+}
+
+.review-card p {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.review-card pre {
+  overflow: auto;
+  max-height: 150px;
+  margin: 0;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: rgba(8, 13, 18, 0.56);
+  color: var(--text-strong);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.review-card > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.review-card button {
+  min-height: 34px;
 }
 
 .activity-list {

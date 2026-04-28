@@ -10,6 +10,7 @@ const repoRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const statusLabels = {
   open: 'Open',
   'in-progress': 'In progress',
+  'ready-for-review': 'Ready for review',
   fixed: 'Fixed',
   deferred: 'Deferred',
 }
@@ -28,8 +29,8 @@ const validSources = new Set(['Codex', 'User'])
 
 function usage() {
   console.log(`Usage:
-  issue-manager add --project <id-or-path> --title <title> [--file <path>] [--category bug|snag|feature|refactor|docs|testing|question] [--source Codex|User] [--detail <text>] [--status open|in-progress|fixed|deferred]
-  issue-manager status --id <issue-id> --status open|in-progress|fixed|deferred
+  issue-manager add --project <id-or-path> --title <title> [--file <path>] [--category bug|snag|feature|refactor|docs|testing|question] [--source Codex|User] [--detail <text>] [--status open|in-progress|ready-for-review|fixed|deferred]
+  issue-manager status --id <issue-id> --status open|in-progress|ready-for-review|fixed|deferred
   issue-manager activity --id <issue-id> --message <text>
   issue-manager list [--project <id-or-path>]
   issue-manager root
