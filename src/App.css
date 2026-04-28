@@ -138,6 +138,36 @@
   border-right: 1px solid var(--border);
 }
 
+.companion-shell,
+.companion-shell * {
+  scrollbar-color: rgba(77, 141, 255, 0.5) rgba(17, 25, 34, 0.42);
+  scrollbar-width: thin;
+}
+
+.companion-shell ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.companion-shell ::-webkit-scrollbar-track {
+  background: rgba(17, 25, 34, 0.42);
+  border-radius: 999px;
+}
+
+.companion-shell ::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(17, 25, 34, 0.42);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(46, 234, 242, 0.72), rgba(77, 141, 255, 0.72));
+}
+
+.companion-shell ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--companion-cyan), var(--focus));
+}
+
+.companion-shell ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .pane-resize-handle {
   position: relative;
   z-index: 2;
@@ -516,6 +546,10 @@
 .codex-project-list {
   display: grid;
   gap: 7px;
+  max-height: clamp(160px, 28vh, 340px);
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-gutter: stable;
 }
 
 .codex-project-row {
