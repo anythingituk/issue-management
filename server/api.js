@@ -232,6 +232,19 @@ function truncateOutput(value, maxLength = 4000) {
   return `${output.slice(0, maxLength)}\n...output truncated...`
 }
 
+function formatAutomationChangedFiles(statusOutput, project) {
+  const issueFilePath = `issues/${project.issueFile ?? `${project.id}.json`}`
+  return String(statusOutput ?? '')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter(Boolean)
+    .filter((line) => {
+      const changedPath = line.slice(3).trim().split(' -> ').pop().replaceAll('\\', '/')
+      return changedPath !== issueFilePath
+    })
+    .join('\n')
+}
+
 async function readProjectIssues(project) {
   try {
     const issueFile = await readJson(projectIssuePath(project))
@@ -1142,14 +1155,16 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
   const startedAt = new Date().toISOString()
   const prompt = buildCodexAutomationPrompt(issue, project)
   const automationModel = String(process.env.CODEX_COMPANION_AUTOMATION_MODEL ?? 'gpt-5.2').trim()
+  const allowUnsandboxed = process.env.CODEX_COMPANION_AUTOMATION_UNSANDBOXED === 'true'
   const args = [
     'exec',
     '--model',
     automationModel,
+    ...(allowUnsandboxed
+      ? ['--dangerously-bypass-approvals-and-sandbox']
+      : ['--sandbox', 'workspace-write']),
     '--cd',
     cwd,
-    '--sandbox',
-    'workspace-write',
     '-',
   ]
 
@@ -1187,23 +1202,26 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
     const canceled = automationCancelRequested
     const ok = !error && !canceled
     const gitStatus = ok ? await runGitIn(cwd, ['status', '--short']) : undefined
-    const changedFiles = ok && gitStatus?.ok
-      ? truncateOutput(gitStatus.output || 'No local file changes.', 3000)
-      : ''
+    const changedFiles = ok && gitStatus?.ok ? truncateOutput(formatAutomationChangedFiles(gitStatus.output, project), 3000) : ''
+    const readOnlyWithoutProjectChanges = ok && output.includes('sandbox: read-only') && !changedFiles
+    const completed = ok && !readOnlyWithoutProjectChanges
+    const reviewChangedFiles = completed ? changedFiles || 'No project file changes.' : ''
     const summary = canceled
       ? 'Codex automation canceled by user.'
-      : ok
+      : completed
       ? 'Codex automation completed and is ready for review. Review the project changes and mark the task fixed when confirmed.'
+      : readOnlyWithoutProjectChanges
+      ? 'Codex automation finished without project changes because the spawned Codex session was read-only. Set CODEX_COMPANION_AUTOMATION_UNSANDBOXED=true to allow write-capable automation.'
       : `Codex automation failed: ${error.message}`
 
     await updateIssueRecord(issue.id, (currentIssue) => ({
       ...currentIssue,
-      automationChangedFiles: ok ? changedFiles : currentIssue.automationChangedFiles,
-      automationCompletedAt: ok ? finishedAt : currentIssue.automationCompletedAt,
-      status: ok ? 'ready-for-review' : 'open',
+      automationChangedFiles: completed ? reviewChangedFiles : currentIssue.automationChangedFiles,
+      automationCompletedAt: completed ? finishedAt : currentIssue.automationCompletedAt,
+      status: completed ? 'ready-for-review' : 'open',
       activity: [
         summary,
-        ...(changedFiles ? [`Changed files:\n${changedFiles}`] : []),
+        ...(reviewChangedFiles ? [`Changed files:\n${reviewChangedFiles}`] : []),
         ...(output ? [`Codex output:\n${output}`] : []),
         ...(Array.isArray(currentIssue.activity) ? currentIssue.activity : []),
       ],
@@ -1213,10 +1231,10 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
 
     automationRun = {
       ...automationRun,
-      changedFiles,
+      changedFiles: reviewChangedFiles,
       finishedAt,
       output,
-      status: canceled ? 'canceled' : ok ? 'completed' : 'failed',
+      status: canceled ? 'canceled' : completed ? 'completed' : 'failed',
     }
     automationChild = null
     automationCancelRequested = false
