@@ -7,21 +7,24 @@
       "createdAt": "2026-04-28T12:41:26.459Z",
       "title": "npm run lint fails with react-hooks/set-state-in-effect",
       "file": "src/App.tsx",
-      "status": "open",
+      "status": "in-progress",
       "category": "bug",
       "source": "Codex",
       "detail": "ESLint reports multiple react-hooks/set-state-in-effect errors (e.g. App.tsx:501, :615, :780, :865) plus exhaustive-deps warnings; blocks 'npm run lint' even though build succeeds.",
       "activity": [
+        "User asked Codex to action soon.",
+        "User asked Codex to action soon.",
+        "User asked Codex to action soon.",
         "Added by Codex through issue-manager."
       ],
-      "decision": "waiting",
-      "priority": "later"
+      "decision": "approved",
+      "priority": "soon"
     },
     {
       "id": "iss-1777231289012",
       "projectId": "issue-management",
       "createdAt": "2026-04-26T19:21:29.012Z",
-      "title": "Enforce 35-character title limit for snags",
+      "title": "Enforce 35-character title limit",
       "status": "open",
       "decision": "approved",
       "priority": "later",

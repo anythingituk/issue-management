@@ -159,7 +159,7 @@ if (gotSingleInstanceLock) {
     process.env.CODEX_COMPANION_DATA_DIR = process.env.CODEX_COMPANION_DATA_DIR ?? defaultDataRoot
     const apiPort = await findAvailablePort(Number(process.env.ISSUE_API_PORT ?? 8787))
     apiBaseUrl = `http://localhost:${apiPort}`
-    apiServer = startIssueApiServer({ port: apiPort })
+    apiServer = startIssueApiServer({ host: '127.0.0.1', port: apiPort })
     createWindow()
 
     app.on('activate', () => {

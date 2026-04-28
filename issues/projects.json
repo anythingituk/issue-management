@@ -14,5 +14,13 @@
     "branch": "codex/logic-corrections",
     "issueFile": "posidacious-v2.json",
     "archived": false
+  },
+  {
+    "id": "trnscrbr",
+    "name": "trnscrbr",
+    "path": "d:\\dev\\trnscrbr",
+    "branch": "main",
+    "issueFile": "trnscrbr.json",
+    "archived": false
   }
 ]

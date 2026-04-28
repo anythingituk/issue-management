@@ -752,8 +752,8 @@ async function getCodexProjects(response) {
   const config = readFileSync(configPath, 'utf8')
   const projects = await readProjects()
   const trackedPaths = new Set(projects.map((project) => path.resolve(project.path).toLowerCase()))
-  const projectPaths = [...config.matchAll(/^\[projects\."(.+)"\]$/gm)].map((match) =>
-    match[1].replace(/\\"/g, '"'),
+  const projectPaths = [...config.matchAll(/^\[projects\.(['"])(.+)\1\]$/gm)].map((match) =>
+    match[2].replace(/\\"/g, '"').replace(/\\'/g, "'"),
   )
   const uniqueProjectPaths = [...new Set(projectPaths)]
   const codexProjects = await Promise.all(
@@ -1769,6 +1769,7 @@ export function startIssueApiServer(options = {}) {
   loadSetupConfig()
 
   const serverPort = Number(options.port ?? port)
+  const host = options.host
   const server = createServer((request, response) => {
     route(request, response).catch((error) => {
       console.error(error)
@@ -1776,8 +1777,9 @@ export function startIssueApiServer(options = {}) {
     })
   })
 
-  server.listen(serverPort, () => {
-    console.log(`Issue API listening on http://localhost:${serverPort}`)
+  const listenArgs = host ? [serverPort, host] : [serverPort]
+  server.listen(...listenArgs, () => {
+    console.log(`Issue API listening on http://${host ?? 'localhost'}:${serverPort}`)
   })
 
   return server
