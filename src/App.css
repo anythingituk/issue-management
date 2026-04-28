@@ -201,7 +201,7 @@
 
 .brand-title {
   width: max-content;
-  background: linear-gradient(90deg, var(--companion-cyan) 0%, #0073fb 45%, var(--companion-purple) 100%);
+  background: linear-gradient(90deg, #8bd9ff 0%, var(--blue) 42%, var(--companion-purple) 100%);
   background-clip: text;
   color: transparent;
   font-size: clamp(13px, 0.9vw, 16px);

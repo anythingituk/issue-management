@@ -239,7 +239,7 @@ function formatAutomationChangedFiles(statusOutput, project) {
     .map((line) => line.trimEnd())
     .filter(Boolean)
     .filter((line) => {
-      const changedPath = line.slice(3).trim().split(' -> ').pop().replaceAll('\\', '/')
+      const changedPath = line.replace(/^[ MADRCU?!]{1,2}\s+/, '').trim().split(' -> ').pop().replaceAll('\\', '/')
       return changedPath !== issueFilePath
     })
     .join('\n')
