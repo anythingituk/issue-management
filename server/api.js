@@ -232,6 +232,10 @@ function truncateOutput(value, maxLength = 4000) {
   return `${output.slice(0, maxLength)}\n...output truncated...`
 }
 
+function getCodexExecutable() {
+  return process.platform === 'win32' ? 'codex.cmd' : 'codex'
+}
+
 async function readProjectIssues(project) {
   try {
     const issueFile = await readJson(projectIssuePath(project))
@@ -1177,10 +1181,9 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
   }
 
   automationCancelRequested = false
-  automationChild = execFile('codex', args, {
+  automationChild = execFile(getCodexExecutable(), args, {
     cwd,
     env: process.env,
-    shell: true,
     timeout: Number(process.env.CODEX_COMPANION_AUTOMATION_TIMEOUT_MS ?? 900000),
   }, async (error, stdout, stderr) => {
     const finishedAt = new Date().toISOString()
