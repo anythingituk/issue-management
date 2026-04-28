@@ -2,7 +2,7 @@
   {
     "id": "issue-management",
     "name": "issue-management",
-    "path": "/mnt/c/dev/issue-management",
+    "path": "/mnt/d/dev/issue-management",
     "branch": "main",
     "issueFile": "issue-management.json",
     "archived": false
