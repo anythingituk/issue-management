@@ -1141,11 +1141,15 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
 
   const startedAt = new Date().toISOString()
   const prompt = buildCodexAutomationPrompt(issue, project)
+  const automationModel = String(process.env.CODEX_COMPANION_AUTOMATION_MODEL ?? 'gpt-5.2').trim()
   const args = [
     'exec',
+    '--model',
+    automationModel,
     '--cd',
     cwd,
-    '--full-auto',
+    '--sandbox',
+    'workspace-write',
     '-',
   ]
 
