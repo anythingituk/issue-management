@@ -1145,10 +1145,7 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
     'exec',
     '--cd',
     cwd,
-    '--sandbox',
-    'workspace-write',
-    '--ask-for-approval',
-    'never',
+    '--full-auto',
     prompt,
   ]
 
