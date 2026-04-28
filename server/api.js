@@ -232,10 +232,6 @@ function truncateOutput(value, maxLength = 4000) {
   return `${output.slice(0, maxLength)}\n...output truncated...`
 }
 
-function getCodexExecutable() {
-  return process.platform === 'win32' ? 'codex.cmd' : 'codex'
-}
-
 async function readProjectIssues(project) {
   try {
     const issueFile = await readJson(projectIssuePath(project))
@@ -1150,7 +1146,7 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
     '--cd',
     cwd,
     '--full-auto',
-    prompt,
+    '-',
   ]
 
   const startedRecord = await updateIssueRecord(issue.id, (currentIssue) => ({
@@ -1181,11 +1177,7 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
   }
 
   automationCancelRequested = false
-  automationChild = execFile(getCodexExecutable(), args, {
-    cwd,
-    env: process.env,
-    timeout: Number(process.env.CODEX_COMPANION_AUTOMATION_TIMEOUT_MS ?? 900000),
-  }, async (error, stdout, stderr) => {
+  const finishAutomationRun = async (error, stdout = '', stderr = '') => {
     const finishedAt = new Date().toISOString()
     const output = truncateOutput([stdout, stderr].filter(Boolean).join('\n'))
     const canceled = automationCancelRequested
@@ -1230,7 +1222,19 @@ async function startAutomationRun(response, issue, project, policy, isRetry = fa
         automationRun = null
       }
     }, 300000)
-  })
+  }
+
+  try {
+    automationChild = execFile('codex', args, {
+      cwd,
+      env: process.env,
+      shell: true,
+      timeout: Number(process.env.CODEX_COMPANION_AUTOMATION_TIMEOUT_MS ?? 900000),
+    }, finishAutomationRun)
+    automationChild.stdin?.end(prompt)
+  } catch (error) {
+    await finishAutomationRun(error)
+  }
 
   sendJson(response, 202, {
     issue: startedRecord.issue,
